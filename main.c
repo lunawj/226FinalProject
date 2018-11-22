@@ -43,9 +43,19 @@ void redBrightness(int dutyCycle);
 void blueBrightness(int dutyCycle);
 void greenBrightness(int dutyCycle);
 void initializePWM();
+
+void printTime();
+void readAlarm();
+void readTime();
+void setAlarm(int hour, int minute);
+void setTime(int hour, int minute, int second);
+int getTemp();
 ///////////////////////////////
-
-
+//alarm
+int AHOUR, AMIN, alarm = 1;
+//time
+int HOUR, MIN, SEC;
+uint16_t temp=0;
 void menu(); //Goes to menu
 
 void initializePWM(); //Initializes timer and pins related to pwm
@@ -59,26 +69,23 @@ void lightInterrupt();  //function to create a light switch
 
 
 //SPEAKER
-void alarm(int on); //sounds alarm
+//void alarm(int on); //sounds alarm
 void TimerA2config(void); // initializes timer A2
 void SpeakerConfig(void); // initializes the speaker
-
+void ADC14init(void);
 
 void initT32();  //initializes TIMER32_1
 
 //INTERRUPTS
 
 void initInterruptPins();  //enables interrupts for pins
-
+void ADC14_IRQHandler(void);
 
 //Global variables
 int blueBright = 100;  //blue LED's brightness
 int redBright = 100;   //red LED's brightness
 int greenBright = 100; //green LED's brightness
-int armed = 0;  //flag to check if the door is armed
-int open = 0; //flag to check if the door is open
-int savedPin = -1;  //holds the saved pin value
-int lightOn = 0; //flag to check if the lights are on
+
 
 /*
  * Initializes everything
@@ -117,86 +124,76 @@ int main(void)
     __enable_irq();  // Enable all interrupts (serial)
 
     int valid = 0;
-    int val1, val2, val3;
-    char c;
+    int hour, minute, second,i;
+    char function[20];
+    //remove while loop after testing
     while(1) {
-        val1 = 0;
-        val2 = 0;
-        val3 = 0;
+        hour = 0;
+        minute = 0;
+        second = 0;
         readInput(string); // Read the input up to \n, store in string.  This function doesn't return until \n is received
         if(string[0] != '\0'){ // if string is not empty, check the inputted data.
-            if(!(strcmp(string,"ON"))) // If command is "ON", turn on LED
+            if(!(strcmp(string,"READALARM")))
             {
-                P1->OUT |= BIT0;
-                writeOutput("Turned P1.0 On\n");
-            }
-            if(!(strcmp(string,"OFF"))) // If command is "OFF", turn off LED
+                readAlarm();
+            }else if(!(strcmp(string,"READTIME")))
             {
-                P1->OUT &= ~BIT0;
-                writeOutput("Turned P1.`0 Off\n");
-            }
-            valid = 0;
-            if(string[0] == 'R' || string[0] == 'B' || string[0] == 'G'){
-
-                c=string[0];
-
-                //convert character to integer
-                val1 = string[1] - '0';
-                val2 = string[2] - '0';
-                val3 = string[3] - '0';
-
-                //converts to percentage
-                val1*=100;
-                val2*=10;
-                val3+= val1 + val2;
-                if(val3 >= 0 && val3 <=100)
-                {
-                    valid = 1;
-                }
-            }
-            if(valid){
-                writeOutput("Valid ");
-                changeLED(c,val3);
-                writeOutput(string);
+                readTime();
             }else{
-                writeOutput("Invalid ");
-                writeOutput(string);
+
+
+                for(i=0; string[i] != ' '; i++)
+                {
+                    function[i] = string[i];
+                }
+                function[i] = '\0';
+
+                //convert string to time
+                i++;
+                hour = string[i] - '0';
+                hour*=10;
+                i++;
+                hour += string[i] - '0';
+                i+=2;
+
+                minute = string[i] - '0';
+                minute*=10;
+                i++;
+                minute += string[i] - '0';
+                i+=2;
+
+                second = string[i] - '0';
+                second*=10;
+                i++;
+                second += string[i] - '0';
+
+                if(hour<=24 && hour>=0){
+                    if(minute <= 60 && minute >=0)
+                        if(second <= 60 && second >=0)
+                            valid = 1;
+                }
+                if(valid){
+
+                    writeOutput("Valid\n");
+
+                    if(!(strcmp(function,"SETTIME")))
+                    {
+                        setTime(hour, minute, second);
+
+                    }else if(!(strcmp(function,"SETALARM")))
+                    {
+                        setAlarm(hour, minute);
+                    }
+
+                }else{
+                    writeOutput("Invalid\n");
+                    //writeOutput(string);
+                }
             }
         }
    }
 }
 
-/*----------------------------------------------------------------
- * void menu()
- *
- * Description: The main menu. Allows users to pick which functions
- *              they want to run
- * Inputs: None
- * Outputs: None
-----------------------------------------------------------------*/
-void menu()
-{
-    //variables to print strings
-    char line0[] = "      Menu";
-    char line1[] = "1. Door";
-    char line2[] = "2. Motor";
-    char line3[] = "3. Lights";
-    char line4[] = "4. arm/disarm";
-    char line5[] = "5. Set password";
-    char line6[] = "6. Screen saver";
-    char line7[] = "*. Continue";
-
-    //other variables
-    int i, key, flag, flag2;
-
-    //prints info
-    resetLCD();
-    for(i = 0; i < strlen(line0); i++)
-    {
-        dataWrite(line0[i]);
-    }
-    delaySeconds(1);
-}
 
 //
 ///*----------------------------------------------------------------
@@ -298,40 +295,7 @@ void initializePWM()
 }
 */
 
-/*----------------------------------------------------------------
- * void alarm(int on)
- *
- * Description: Displays a message on the LCD and toggles/sounds alarm
- * Inputs: an integer flag that determines whether the alarm should sound
- * Outputs: Sound to speaker
-----------------------------------------------------------------*/
-void alarm(int on)
-{
-    //variables to print strings
-    int i;
-    char str[] = "Alarm on";
-    char str2[] = "Alarm off";
-    if(on)
-    {
-        //sound alarm
-        TIMER_A2->CCR[2]    =    5700;
-        resetLCD();
-        for(i = 0; i < strlen(str); i++)
-        {
-            dataWrite(str[i]);
-        }
-        delaySeconds(1);
-    }else{
-        //turn off alarm
-        TIMER_A2->CCR[2]    =    0;
-        resetLCD();
-        for(i = 0; i < strlen(str2); i++)
-        {
-            dataWrite(str2[i]);
-        }
-        delaySeconds(1);
-    }
-}
+
 
 /*----------------------------------------------------------------
  * void PORT3_IRQHandler(void)
@@ -344,7 +308,6 @@ void PORT3_IRQHandler(void)
 {
     if(P3 -> IFG & BIT2)
     {
-        lightInterrupt(); //light switch
         P3 -> IFG &= ~BIT2;
     }
     return;
@@ -397,32 +360,7 @@ void initInterruptPins()
 
 }
 
-/*----------------------------------------------------------------
- * void lightInterrupt()
- *
- * Description: Turns off the red, blue, and green LEDs if their on.
- *              Turn them on to their previous value if their off.
- * Inputs: None
- * Outputs: Sets LED to their corresponding values based on the conditions
-----------------------------------------------------------------*/
-void lightInterrupt()
-{
-    if(lightOn)
-    {
-        //turns lights off
-        TIMER_A1->CCR[2] = 0;
-        TIMER_A1->CCR[3] = 0;
-        TIMER_A1->CCR[4] = 0;
-        lightOn = 0;
-    }else
-    {
-        //turns light on
-        TIMER_A1->CCR[2] = (int)(blueBright/100.0)* 6000; //blue
-        TIMER_A1->CCR[3] = (int)(redBright/100.0)* 6000;; //red
-        TIMER_A1->CCR[4] = (int)(greenBright/100.0)* 6000;; //green
-        lightOn = 1;
-    }
-}
+
 
 
 
@@ -688,4 +626,181 @@ void initializePWM(){
     TIMER_A0->CCR[1] = 999*(1/2.0);//Blue LED on
     TIMER_A0->CCR[2] = 999*(1/2.0);//Red LED on
     TIMER_A0->CCR[3] = 999*(1/2.0);//Green LED on
+}
+
+void readAlarm(){
+    printf("read alarm\n");
+    char buff[20];
+    writeOutput("Alarm is ");
+    sprintf(buff, "2%d:2%d%c", AHOUR, AMIN, '/0');
+    writeOutput(buff);
+}
+
+void readTime(){
+    printf("read time\n");
+    char buff[20];
+    writeOutput("Time is ");
+    sprintf(buff, "2%d:2%d:2%d%c", HOUR, MIN, SEC, '/0');
+    writeOutput(buff);
+}
+void setAlarm(int hour, int minute){
+    printf("set alarm\n");
+    AHOUR = hour;
+    AMIN = minute;
+    char buff[20];
+    writeOutput("Alarm set to ");
+    sprintf(buff, "2%d:2%d%c", AHOUR, AMIN, '/0');
+    writeOutput(buff);
+}
+void setTime(int hour, int minute, int second){
+    printf("set time\n");
+    HOUR = hour;
+    MIN = minute;
+    SEC = second;
+    char buff[20];
+    writeOutput("Time set to ");
+    sprintf(buff, "2%d:2%d:2%d%c", HOUR, MIN, SEC, '/0');
+    writeOutput(buff);
+}
+
+//
+void printTime(){
+   char line1[20];
+   char line2[20];
+   char line3[20];
+   char line4[20];
+   int i, n;
+   resetLCD();
+   if(HOUR < 12 || HOUR == 24)
+   {
+       sprintf(line1, "%d:2%d:2%d AM%c", HOUR, MIN, SEC, '/0');
+   }else{
+       sprintf(line1, "%d:2%d:2%d PM%c", HOUR, MIN, SEC, '/0');
+   }
+
+   if(alarm == 2)
+  {
+      sprintf(line2,"SNOOZE%c", '/0');
+  }else if(alarm == 1){
+      sprintf(line2,"ON%c", '/0');
+  }else{
+      sprintf(line2,"OFF%c", '/0');
+  }
+
+   if(AHOUR < 12 || AHOUR == 24)
+   {
+       sprintf(line3, "%d:2%d AM%c", AHOUR, AMIN, '/0');
+   }else{
+       sprintf(line3, "%d:2%d PM%c", AHOUR, AMIN, '/0');
+   }
+
+   sprintf(line4,"%.1d%c", getTemp(), '/0');
+   n = strlen(line1);
+   for(i=0;i<n;i++)
+   {
+       dataWrite(line1[i]);
+   }
+
+   commandWrite(0xC0);
+   delayMicro(100);
+   commandWrite(0x0F);
+   n = strlen(line2);
+   for(i=0;i<n;i++)
+   {
+       dataWrite(line2[i]);
+   }
+
+   commandWrite(0x90);
+   delayMicro(100);
+   commandWrite(0x0F);
+   n = strlen(line3);
+   for(i=0;i<n;i++)
+   {
+       dataWrite(line3[i]);
+   }
+
+  commandWrite(0xC0+0x10);
+  delayMicro(100);
+  commandWrite(0x0F);
+  n = strlen(line4);
+  for(i=0;i<n;i++)
+  {
+      dataWrite(line4[i]);
+  }
+  dataWrite(0b11011111);
+  dataWrite('F');
+
+}
+
+//remember that this was done with a timer. fix later
+int getTemp(){
+    float result_temp;
+     uint16_t result;
+
+//    while(1)
+//    {
+        ADC14->CTL0 |=0b1;
+        result = temp;
+        result_temp = ((result*3.3)/16384);
+        result_temp = (result_temp * 1000 - 500)/10;
+        result_temp = 32 + (result_temp * 9.0/5.0);
+        return result_temp;
+
+//    }
+
+}
+
+
+/*----------------------------------------------------------------
+ * void ADC14init(void)
+ *
+ * Description: Function will set up the ADC14 to run in single
+ * measurement mode and to interrupt upon conversion.
+ * Clock Source: SMCLK
+ * Clock DIV:   32
+ * Resolution: 10 bits
+ * Inputs: None
+ * Outputs: None
+----------------------------------------------------------------*/
+void ADC14init(void)
+{
+    //For Analog Input 8
+//    P4->SEL0            |=   BIT5;                      // Select ADC Operation
+//    P4->SEL1            |=   BIT5;                      // SEL = 11 sets to ADC operation
+    P5->SEL0            |=   BIT5;                      // Select ADC Operation
+    P5->SEL1            |=   BIT5;                      // SEL = 11 sets to ADC operation
+
+    ADC14->CTL0         =    0;                         // Disable ADC for setup
+
+    // CTL0 Configuration
+    // 31-30 = 10   to divide down input clock by 32X
+    // 26    = 1    to sample based on the sample timer.  This enables the use of bits 11-8 below.
+    // 21-19 = 100  for SMCLK
+    // 18-17 = 01   for reading multiple channels at once
+    // 11-8  = 0011 for 32 clk sample and hold time
+    // 7     = 0    for one ADC channel being read
+    // 4     = 1    to turn on ADC
+    ADC14->CTL0         =    0b10000100001000100000001100010000;
+
+    ADC14->CTL1         =    BIT5;         // Bits 5 = 11 to enable 14 bit conversion
+                                                     // Bit 23 turns on Temperature Sensor
+    ADC14->MCTL[0]      =    0|BIT7;                         // A0 on P4.5, BIT7 says stop converting after this ADC
+    //ADC14->MCTL[1]      =    8;                         // A8 on P4.5
+    //ADC14->MCTL[2]      =    22 | BIT7;                 // Internal Temperature Sensor on A22 WHICH IS P6.3
+                                                        // BIT7 says to stop converting after this ADC.
+    ADC14->IER0         |=   BIT0;            // Interrupt on for all three conversions
+
+    ADC14->CTL0         |=   0b10;                      // Enable Conversion
+    NVIC->ISER[0]       |=   1<<ADC14_IRQn;             // Turn on ADC Interrupts in NVIC.  Equivalent to "NVIC_EnableIRQ(ADC14_IRQn);"
+}
+//Interrupts
+void ADC14_IRQHandler(void)
+{
+    if(ADC14->IFGR0 & BIT0)
+    {
+       temp = ADC14->MEM[0];
+        ADC14->CLRIFGR0     &=  ~BIT0;                  // Clear MEM0 interrupt flag
+    }
+
+    ADC14->CLRIFGR1     &=    ~0b1111110;                 // Clear all IFGR1 Interrupts (Bits 6-1.  These could trigger an interrupt and we are checking them for now.)
 }
