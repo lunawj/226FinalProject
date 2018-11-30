@@ -6,8 +6,6 @@
 #include "SysTickInitialization.h"
 #include "LCDinitialization.h"
 
-//Evans test to working git hub
-
 /**
  * main.c
  * Summary: This code creates a home security system for a model home. It uses various
@@ -97,24 +95,26 @@ void main(void)
 
 {
     WDT_A->CTL = WDT_A_CTL_PW | WDT_A_CTL_HOLD;     // stop watchdog timer
+
+//    initInterruptPins();
+
+//    initializePWM();
+//    initT32();
+//    TimerA2config();
+//    SpeakerConfig();
+//    NVIC_EnableIRQ(PORT2_IRQn);
+//    NVIC_EnableIRQ(PORT3_IRQn);
+//    __enable_interrupt();
+  // menu(); //main menu
+}
+*/
+int main(void)
+{
     initSysTick();
     initPins();
-    initInterruptPins();
     delayMicro(100);
     LCDInit();
     delayMicro(100);
-    initializePWM();
-    initT32();
-    TimerA2config();
-    SpeakerConfig();
-    NVIC_EnableIRQ(PORT2_IRQn);
-    NVIC_EnableIRQ(PORT3_IRQn);
-    __enable_interrupt();
-    menu(); //main menu
-}*/
-
-int main(void)
-{
     char string[BUFFER_SIZE]; // Creates local char array to store incoming serial commands
     WDT_A->CTL = WDT_A_CTL_PW |  WDT_A_CTL_HOLD; // Stop watchdog timer
 
@@ -133,6 +133,7 @@ int main(void)
         hour = 0;
         minute = 0;
         second = 0;
+
         readInput(string); // Read the input up to \n, store in string.  This function doesn't return until \n is received
         if(string[0] != '\0'){ // if string is not empty, check the inputted data.
             if(!(strcmp(string,"READALARM")))
@@ -149,47 +150,63 @@ int main(void)
                     function[i] = string[i];
                 }
                 function[i] = '\0';
+                if(!(strcmp(function,"SETTIME")))
+                {
 
-                //convert string to time
-                i++;
-                hour = string[i] - '0';
-                hour*=10;
-                i++;
-                hour += string[i] - '0';
-                i+=2;
+                    //convert string to time
+                    i++;
+                    hour = string[i] - '0';
+                    hour*=10;
+                    i++;
+                    hour += string[i] - '0';
+                    i+=2;
 
-                minute = string[i] - '0';
-                minute*=10;
-                i++;
-                minute += string[i] - '0';
-                i+=2;
+                    minute = string[i] - '0';
+                    minute*=10;
+                    i++;
+                    minute += string[i] - '0';
+                    i+=2;
 
-                second = string[i] - '0';
-                second*=10;
-                i++;
-                second += string[i] - '0';
+                    second = string[i] - '0';
+                    second*=10;
+                    i++;
+                    second += string[i] - '0';
 
-                if(hour<=24 && hour>=0){
-                    if(minute <= 60 && minute >=0)
-                        if(second <= 60 && second >=0)
-                            valid = 1;
-                }
-                if(valid){
-
-                    writeOutput("Valid\n");
-
-                    if(!(strcmp(function,"SETTIME")))
-                    {
-                        setTime(hour, minute, second);
-
-                    }else if(!(strcmp(function,"SETALARM")))
-                    {
-                        setAlarm(hour, minute);
+                    if(hour<=24 && hour>=0){
+                        if(minute <= 60 && minute >=0)
+                            if(second <= 60 && second >=0){
+                                writeOutput("Valid\n");
+                                setTime(hour, minute, second);
+                                valid = 1;
+                            }
                     }
+                }else if(!(strcmp(function,"SETALARM")))
+                {
+                    //convert string to time
+                   i++;
+                   hour = string[i] - '0';
+                   hour*=10;
+                   i++;
+                   hour += string[i] - '0';
+                   i+=2;
 
-                }else{
+                   minute = string[i] - '0';
+                   minute*=10;
+                   i++;
+                   minute += string[i] - '0';
+                   i+=2;
+
+                   if(hour<=24 && hour>=0){
+                       if(minute <= 60 && minute >=0)
+                       {
+                           writeOutput("Valid\n");
+                           setAlarm(hour, minute);
+                           valid = 1;
+                       }
+                   }
+                }
+                else{
                     writeOutput("Invalid\n");
-                    //writeOutput(string);
                 }
             }
         }
@@ -297,119 +314,119 @@ void initializePWM()
 }
 */
 
-
-
-/*----------------------------------------------------------------
- * void PORT3_IRQHandler(void)
- *
- * Description: interrupt handler for the light switch button
- * Inputs: None
- * Outputs: None
-----------------------------------------------------------------*/
-void PORT3_IRQHandler(void)
-{
-    if(P3 -> IFG & BIT2)
-    {
-        P3 -> IFG &= ~BIT2;
-    }
-    return;
-}
-
-/*----------------------------------------------------------------
- * void PORT2_IRQHandler(void)
- *
- * Description: interrupt handler for the motor button
- * Inputs: None
- * Outputs: None
-----------------------------------------------------------------*/
-void PORT2_IRQHandler(void)
-{
-    if(P2 -> IFG & BIT6)
-    {
-        P2 -> IFG &= ~BIT6;
-    }
-    return;
-}
-
-/*----------------------------------------------------------------
- * void initInterruptPins()
- *
- * Description: initializes button interrupts for the motor and lights
- * Inputs: None
- * Outputs: None
-----------------------------------------------------------------*/
-void initInterruptPins()
-{
-    //LIGHT SWITCH
-    P3 -> SEL0 &= ~BIT2;
-    P3 -> SEL1 &= ~BIT2;
-    P3 -> DIR &= ~BIT2;
-    P3 -> REN |= BIT2;
-    P3 -> OUT |= BIT2;
-    P3 -> IE |= BIT2;
-    P3 -> IES |= BIT2;
-    P3 -> IFG &= ~BIT2;
-
-    //EMERGENCY STOP FOR MOTOR
-    P2 -> SEL0 &= ~BIT6;
-    P2 -> SEL1 &= ~BIT6;
-    P2 -> DIR &= ~BIT6;
-    P2 -> REN |= BIT6;
-    P2 -> OUT |= BIT6;
-    P2 -> IE |= BIT6;
-    P2 -> IES |= BIT6;
-    P2 -> IFG &= ~BIT6;
-
-}
-
-
-
-
-
-
-/*----------------------------------------------------------------
- * void initT32()
- *
- * Description: Initializes TIMER32_1
- * Inputs: None
- * Outputs: None
-----------------------------------------------------------------*/
-void initT32()
-{
-    TIMER32_1->CONTROL = 0b11000011;                //Sets timer 1 for Enabled, Periodic, No Interrupt, No Prescaler, 32 bit mode, One Shot Mode.  See 589 of the reference manual
-    TIMER32_1->LOAD = 30000000 - 1;   //10 seconds           //Set to a count down of 1 second on 3 MHz clock
-}
-
-/*----------------------------------------------------------------
- * void TimerA2config(void)
- *
- * Description: Initializes TIMER_A2
- * Inputs: None
- * Outputs: None
-----------------------------------------------------------------*/
-void TimerA2config(void)
-{
-    TIMER_A2->CCR[0]    =    5714;                    // Initialize the period of TimerA0 PWM to the maximum.  This will change at the first interrupt.  Could be set to something else.
-    TIMER_A2->CCR[2]    =    (0);                         // Will reset (set to 0) immediately, so it will always be off by default
-    TIMER_A2->CCTL[2]   =    0b11100000;                // Set to Reset/set Compare Mode (BITs 7-5 set to 1)
-    TIMER_A2->CTL       =    0b1000010100;              // Bits 9-8 = 10 to Set to SMCLK
-                                                        // Bits 5-4 = 01 to Set to Count Up Mode
-                                                        // Bit 2 to 1 to Clear and Load Settings.
-}
-
-/*----------------------------------------------------------------
- * void SpeakerConfig(void)
- *
- * Description: Set Speaker pin to PWM controlled by Timer_A0
- * Inputs: None
- * Outputs: None
-----------------------------------------------------------------*/
-void SpeakerConfig(void)
-{
-    P5->SEL0            |=   BIT7;                      // Configure P2.4 to TIMER_A0 PWM Control
-    P5->SEL1            &=  ~BIT7;                      // SEL = 01 sets to PWM Control
-    P5->DIR             |=   BIT7;                      // Initialize speaker pin as an output
-}
+//
+//
+///*----------------------------------------------------------------
+// * void PORT3_IRQHandler(void)
+// *
+// * Description: interrupt handler for the light switch button
+// * Inputs: None
+// * Outputs: None
+//----------------------------------------------------------------*/
+//void PORT3_IRQHandler(void)
+//{
+//    if(P3 -> IFG & BIT2)
+//    {
+//        P3 -> IFG &= ~BIT2;
+//    }
+//    return;
+//}
+//
+///*----------------------------------------------------------------
+// * void PORT2_IRQHandler(void)
+// *
+// * Description: interrupt handler for the motor button
+// * Inputs: None
+// * Outputs: None
+//----------------------------------------------------------------*/
+//void PORT2_IRQHandler(void)
+//{
+//    if(P2 -> IFG & BIT6)
+//    {
+//        P2 -> IFG &= ~BIT6;
+//    }
+//    return;
+//}
+//
+///*----------------------------------------------------------------
+// * void initInterruptPins()
+// *
+// * Description: initializes button interrupts for the motor and lights
+// * Inputs: None
+// * Outputs: None
+//----------------------------------------------------------------*/
+//void initInterruptPins()
+//{
+//    //LIGHT SWITCH
+//    P3 -> SEL0 &= ~BIT2;
+//    P3 -> SEL1 &= ~BIT2;
+//    P3 -> DIR &= ~BIT2;
+//    P3 -> REN |= BIT2;
+//    P3 -> OUT |= BIT2;
+//    P3 -> IE |= BIT2;
+//    P3 -> IES |= BIT2;
+//    P3 -> IFG &= ~BIT2;
+//
+//    //EMERGENCY STOP FOR MOTOR
+//    P2 -> SEL0 &= ~BIT6;
+//    P2 -> SEL1 &= ~BIT6;
+//    P2 -> DIR &= ~BIT6;
+//    P2 -> REN |= BIT6;
+//    P2 -> OUT |= BIT6;
+//    P2 -> IE |= BIT6;
+//    P2 -> IES |= BIT6;
+//    P2 -> IFG &= ~BIT6;
+//
+//}
+//
+//
+//
+//
+//
+//
+///*----------------------------------------------------------------
+// * void initT32()
+// *
+// * Description: Initializes TIMER32_1
+// * Inputs: None
+// * Outputs: None
+//----------------------------------------------------------------*/
+//void initT32()
+//{
+//    TIMER32_1->CONTROL = 0b11000011;                //Sets timer 1 for Enabled, Periodic, No Interrupt, No Prescaler, 32 bit mode, One Shot Mode.  See 589 of the reference manual
+//    TIMER32_1->LOAD = 30000000 - 1;   //10 seconds           //Set to a count down of 1 second on 3 MHz clock
+//}
+//
+///*----------------------------------------------------------------
+// * void TimerA2config(void)
+// *
+// * Description: Initializes TIMER_A2
+// * Inputs: None
+// * Outputs: None
+//----------------------------------------------------------------*/
+//void TimerA2config(void)
+//{
+//    TIMER_A2->CCR[0]    =    5714;                    // Initialize the period of TimerA0 PWM to the maximum.  This will change at the first interrupt.  Could be set to something else.
+//    TIMER_A2->CCR[2]    =    (0);                         // Will reset (set to 0) immediately, so it will always be off by default
+//    TIMER_A2->CCTL[2]   =    0b11100000;                // Set to Reset/set Compare Mode (BITs 7-5 set to 1)
+//    TIMER_A2->CTL       =    0b1000010100;              // Bits 9-8 = 10 to Set to SMCLK
+//                                                        // Bits 5-4 = 01 to Set to Count Up Mode
+//                                                        // Bit 2 to 1 to Clear and Load Settings.
+//}
+//
+///*----------------------------------------------------------------
+// * void SpeakerConfig(void)
+// *
+// * Description: Set Speaker pin to PWM controlled by Timer_A0
+// * Inputs: None
+// * Outputs: None
+//----------------------------------------------------------------*/
+//void SpeakerConfig(void)
+//{
+//    P5->SEL0            |=   BIT7;                      // Configure P2.4 to TIMER_A0 PWM Control
+//    P5->SEL1            &=  ~BIT7;                      // SEL = 01 sets to PWM Control
+//    P5->DIR             |=   BIT7;                      // Initialize speaker pin as an output
+//}
 
 /*----------------------------------------------------------------
  * Description:
@@ -631,37 +648,33 @@ void initializePWM(){
 }
 
 void readAlarm(){
-    printf("read alarm\n");
     char buff[20];
     writeOutput("Alarm is ");
-    sprintf(buff, "2%d:2%d%c", AHOUR, AMIN, '/0');
+    sprintf(buff, "%2d:%2d%c", AHOUR, AMIN, '\0');
     writeOutput(buff);
 }
 
 void readTime(){
-    printf("read time\n");
     char buff[20];
     writeOutput("Time is ");
-    sprintf(buff, "2%d:2%d:2%d%c", HOUR, MIN, SEC, '/0');
+    sprintf(buff, "%2d:%2d:%2d%c", HOUR, MIN, SEC, '\0');
     writeOutput(buff);
 }
 void setAlarm(int hour, int minute){
-    printf("set alarm\n");
     AHOUR = hour;
     AMIN = minute;
     char buff[20];
     writeOutput("Alarm set to ");
-    sprintf(buff, "2%d:2%d%c", AHOUR, AMIN, '/0');
+    sprintf(buff, "%2d:%2d%c", AHOUR, AMIN, '\0');
     writeOutput(buff);
 }
 void setTime(int hour, int minute, int second){
-    printf("set time\n");
     HOUR = hour;
     MIN = minute;
     SEC = second;
     char buff[20];
     writeOutput("Time set to ");
-    sprintf(buff, "2%d:2%d:2%d%c", HOUR, MIN, SEC, '/0');
+    sprintf(buff, "%2d:%2d:%2d%c", HOUR, MIN, SEC, '\0');
     writeOutput(buff);
 }
 
@@ -675,33 +688,33 @@ void printTime(){
    resetLCD();
    if(HOUR < 12 || HOUR == 24)
    {
-       sprintf(line1, "%d:2%d:2%d AM%c", HOUR, MIN, SEC, '/0');
+       sprintf(line1, "%d:2%d:2%d AM%c", HOUR, MIN, SEC, '\0');
    }else{
-       sprintf(line1, "%d:2%d:2%d PM%c", HOUR, MIN, SEC, '/0');
+       sprintf(line1, "%d:2%d:2%d PM%c", HOUR, MIN, SEC, '\0');
    }
 
    if(alarm == 2)
   {
-      sprintf(line2,"SNOOZE%c", '/0');
+      sprintf(line2,"SNOOZE%c", '\0');
   }else if(alarm == 1){
-      sprintf(line2,"ON%c", '/0');
+      sprintf(line2,"ON%c", '\0');
   }else{
-      sprintf(line2,"OFF%c", '/0');
+      sprintf(line2,"OFF%c", '\0');
   }
 
    if(AHOUR < 12 || AHOUR == 24)
    {
-       sprintf(line3, "%d:2%d AM%c", AHOUR, AMIN, '/0');
+       sprintf(line3, "%d:2%d AM%c", AHOUR, AMIN, '\0');
    }else{
-       sprintf(line3, "%d:2%d PM%c", AHOUR, AMIN, '/0');
+       sprintf(line3, "%d:2%d PM%c", AHOUR, AMIN, '\0');
    }
 
-   sprintf(line4,"%.1d%c", getTemp(), '/0');
-   n = strlen(line1);
-   for(i=0;i<n;i++)
-   {
-       dataWrite(line1[i]);
-   }
+//   sprintf(line4,"%.1d%c", getTemp(), '\0');
+//   n = strlen(line1);
+//   for(i=0;i<n;i++)
+//   {
+//       dataWrite(line1[i]);
+//   }
 
    commandWrite(0xC0);
    delayMicro(100);
@@ -734,75 +747,75 @@ void printTime(){
 
 }
 
-//remember that this was done with a timer. fix later
-int getTemp(){
-    float result_temp;
-     uint16_t result;
-
-//    while(1)
+////remember that this was done with a timer. fix later
+//int getTemp(){
+//    float result_temp;
+//     uint16_t result;
+//
+////    while(1)
+////    {
+//        ADC14->CTL0 |=0b1;
+//        result = temp;
+//        result_temp = ((result*3.3)/16384);
+//        result_temp = (result_temp * 1000 - 500)/10;
+//        result_temp = 32 + (result_temp * 9.0/5.0);
+//        return result_temp;
+//
+////    }
+//
+//}
+//
+//
+///*----------------------------------------------------------------
+// * void ADC14init(void)
+// *
+// * Description: Function will set up the ADC14 to run in single
+// * measurement mode and to interrupt upon conversion.
+// * Clock Source: SMCLK
+// * Clock DIV:   32
+// * Resolution: 10 bits
+// * Inputs: None
+// * Outputs: None
+//----------------------------------------------------------------*/
+//void ADC14init(void)
+//{
+//    //For Analog Input 8
+////    P4->SEL0            |=   BIT5;                      // Select ADC Operation
+////    P4->SEL1            |=   BIT5;                      // SEL = 11 sets to ADC operation
+//    P5->SEL0            |=   BIT5;                      // Select ADC Operation
+//    P5->SEL1            |=   BIT5;                      // SEL = 11 sets to ADC operation
+//
+//    ADC14->CTL0         =    0;                         // Disable ADC for setup
+//
+//    // CTL0 Configuration
+//    // 31-30 = 10   to divide down input clock by 32X
+//    // 26    = 1    to sample based on the sample timer.  This enables the use of bits 11-8 below.
+//    // 21-19 = 100  for SMCLK
+//    // 18-17 = 01   for reading multiple channels at once
+//    // 11-8  = 0011 for 32 clk sample and hold time
+//    // 7     = 0    for one ADC channel being read
+//    // 4     = 1    to turn on ADC
+//    ADC14->CTL0         =    0b10000100001000100000001100010000;
+//
+//    ADC14->CTL1         =    BIT5;         // Bits 5 = 11 to enable 14 bit conversion
+//                                                     // Bit 23 turns on Temperature Sensor
+//    ADC14->MCTL[0]      =    0|BIT7;                         // A0 on P4.5, BIT7 says stop converting after this ADC
+//    //ADC14->MCTL[1]      =    8;                         // A8 on P4.5
+//    //ADC14->MCTL[2]      =    22 | BIT7;                 // Internal Temperature Sensor on A22 WHICH IS P6.3
+//                                                        // BIT7 says to stop converting after this ADC.
+//    ADC14->IER0         |=   BIT0;            // Interrupt on for all three conversions
+//
+//    ADC14->CTL0         |=   0b10;                      // Enable Conversion
+//    NVIC->ISER[0]       |=   1<<ADC14_IRQn;             // Turn on ADC Interrupts in NVIC.  Equivalent to "NVIC_EnableIRQ(ADC14_IRQn);"
+//}
+////Interrupts
+//void ADC14_IRQHandler(void)
+//{
+//    if(ADC14->IFGR0 & BIT0)
 //    {
-        ADC14->CTL0 |=0b1;
-        result = temp;
-        result_temp = ((result*3.3)/16384);
-        result_temp = (result_temp * 1000 - 500)/10;
-        result_temp = 32 + (result_temp * 9.0/5.0);
-        return result_temp;
-
+//       temp = ADC14->MEM[0];
+//        ADC14->CLRIFGR0     &=  ~BIT0;                  // Clear MEM0 interrupt flag
 //    }
-
-}
-
-
-/*----------------------------------------------------------------
- * void ADC14init(void)
- *
- * Description: Function will set up the ADC14 to run in single
- * measurement mode and to interrupt upon conversion.
- * Clock Source: SMCLK
- * Clock DIV:   32
- * Resolution: 10 bits
- * Inputs: None
- * Outputs: None
-----------------------------------------------------------------*/
-void ADC14init(void)
-{
-    //For Analog Input 8
-//    P4->SEL0            |=   BIT5;                      // Select ADC Operation
-//    P4->SEL1            |=   BIT5;                      // SEL = 11 sets to ADC operation
-    P5->SEL0            |=   BIT5;                      // Select ADC Operation
-    P5->SEL1            |=   BIT5;                      // SEL = 11 sets to ADC operation
-
-    ADC14->CTL0         =    0;                         // Disable ADC for setup
-
-    // CTL0 Configuration
-    // 31-30 = 10   to divide down input clock by 32X
-    // 26    = 1    to sample based on the sample timer.  This enables the use of bits 11-8 below.
-    // 21-19 = 100  for SMCLK
-    // 18-17 = 01   for reading multiple channels at once
-    // 11-8  = 0011 for 32 clk sample and hold time
-    // 7     = 0    for one ADC channel being read
-    // 4     = 1    to turn on ADC
-    ADC14->CTL0         =    0b10000100001000100000001100010000;
-
-    ADC14->CTL1         =    BIT5;         // Bits 5 = 11 to enable 14 bit conversion
-                                                     // Bit 23 turns on Temperature Sensor
-    ADC14->MCTL[0]      =    0|BIT7;                         // A0 on P4.5, BIT7 says stop converting after this ADC
-    //ADC14->MCTL[1]      =    8;                         // A8 on P4.5
-    //ADC14->MCTL[2]      =    22 | BIT7;                 // Internal Temperature Sensor on A22 WHICH IS P6.3
-                                                        // BIT7 says to stop converting after this ADC.
-    ADC14->IER0         |=   BIT0;            // Interrupt on for all three conversions
-
-    ADC14->CTL0         |=   0b10;                      // Enable Conversion
-    NVIC->ISER[0]       |=   1<<ADC14_IRQn;             // Turn on ADC Interrupts in NVIC.  Equivalent to "NVIC_EnableIRQ(ADC14_IRQn);"
-}
-//Interrupts
-void ADC14_IRQHandler(void)
-{
-    if(ADC14->IFGR0 & BIT0)
-    {
-       temp = ADC14->MEM[0];
-        ADC14->CLRIFGR0     &=  ~BIT0;                  // Clear MEM0 interrupt flag
-    }
-
-    ADC14->CLRIFGR1     &=    ~0b1111110;                 // Clear all IFGR1 Interrupts (Bits 6-1.  These could trigger an interrupt and we are checking them for now.)
-}
+//
+//    ADC14->CLRIFGR1     &=    ~0b1111110;                 // Clear all IFGR1 Interrupts (Bits 6-1.  These could trigger an interrupt and we are checking them for now.)
+//}
