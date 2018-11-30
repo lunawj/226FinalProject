@@ -52,9 +52,9 @@ void setTime(int hour, int minute, int second);
 int getTemp();
 ///////////////////////////////
 //alarm
-int AHOUR, AMIN, alarm = 1;
+int AHOUR = 0, AMIN = 0, alarm = 0;
 //time
-int HOUR, MIN, SEC;
+int HOUR = 0, MIN = 0, SEC = 0;
 uint16_t temp=0;
 void menu(); //Goes to menu
 
@@ -650,14 +650,14 @@ void initializePWM(){
 void readAlarm(){
     char buff[20];
     writeOutput("Alarm is ");
-    sprintf(buff, "%2d:%2d%c", AHOUR, AMIN, '\0');
+    sprintf(buff, "%02d:%02d%c", AHOUR, AMIN, '\0');
     writeOutput(buff);
 }
 
 void readTime(){
     char buff[20];
     writeOutput("Time is ");
-    sprintf(buff, "%2d:%2d:%2d%c", HOUR, MIN, SEC, '\0');
+    sprintf(buff, "%02d:%02d:%02d%c", HOUR, MIN, SEC, '\0');
     writeOutput(buff);
 }
 void setAlarm(int hour, int minute){
@@ -665,7 +665,7 @@ void setAlarm(int hour, int minute){
     AMIN = minute;
     char buff[20];
     writeOutput("Alarm set to ");
-    sprintf(buff, "%2d:%2d%c", AHOUR, AMIN, '\0');
+    sprintf(buff, "%02d:%02d%c", AHOUR, AMIN, '\0');
     writeOutput(buff);
 }
 void setTime(int hour, int minute, int second){
@@ -674,8 +674,9 @@ void setTime(int hour, int minute, int second){
     SEC = second;
     char buff[20];
     writeOutput("Time set to ");
-    sprintf(buff, "%2d:%2d:%2d%c", HOUR, MIN, SEC, '\0');
+    sprintf(buff, "%02d:%02d:%02d%c", HOUR, MIN, SEC, '\0');
     writeOutput(buff);
+    printTime();
 }
 
 //
@@ -685,36 +686,40 @@ void printTime(){
    char line3[20];
    char line4[20];
    int i, n;
-   resetLCD();
-   if(HOUR < 12 || HOUR == 24)
-   {
-       sprintf(line1, "%d:2%d:2%d AM%c", HOUR, MIN, SEC, '\0');
-   }else{
-       sprintf(line1, "%d:2%d:2%d PM%c", HOUR, MIN, SEC, '\0');
-   }
+   if(HOUR <= 12)
+     {
+         sprintf(line1, "%d:%02d:%02d AM%c", HOUR, MIN, SEC,'\0');
+     }else if(HOUR == 0){
+         sprintf(line1, "%d:%02d:%02d AM%c", 12, MIN, SEC, '\0');
+     }else if(HOUR > 12){
+         sprintf(line1, "%d:%02d:%02d PM%c", HOUR-12, MIN, SEC, '\0');
+     }
 
    if(alarm == 2)
   {
-      sprintf(line2,"SNOOZE%c", '\0');
+      sprintf(line2,"ALARM SNOOZE%c", '\0');
   }else if(alarm == 1){
-      sprintf(line2,"ON%c", '\0');
+      sprintf(line2,"ALARM ON%c", '\0');
   }else{
-      sprintf(line2,"OFF%c", '\0');
+      sprintf(line2,"ALARM OFF%c", '\0');
   }
 
-   if(AHOUR < 12 || AHOUR == 24)
+   if(AHOUR <= 12)
    {
-       sprintf(line3, "%d:2%d AM%c", AHOUR, AMIN, '\0');
-   }else{
-       sprintf(line3, "%d:2%d PM%c", AHOUR, AMIN, '\0');
+       sprintf(line3, "%d:%02d AM%c", AHOUR, AMIN, '\0');
+   }else if(AHOUR == 0){
+       sprintf(line3, "%d:%02d AM%c", 12, AMIN, '\0');
+   }else if(AHOUR > 12){
+       sprintf(line3, "%d:%02d PM%c", AHOUR-12, AMIN, '\0');
    }
 
-//   sprintf(line4,"%.1d%c", getTemp(), '\0');
-//   n = strlen(line1);
-//   for(i=0;i<n;i++)
-//   {
-//       dataWrite(line1[i]);
-//   }
+   //sprintf(line4,"%.1d%c", getTemp(), '\0');
+
+   n = strlen(line1);
+   for(i=0;i<n;i++)
+   {
+       dataWrite(line1[i]);
+   }
 
    commandWrite(0xC0);
    delayMicro(100);
@@ -734,16 +739,16 @@ void printTime(){
        dataWrite(line3[i]);
    }
 
-  commandWrite(0xC0+0x10);
-  delayMicro(100);
-  commandWrite(0x0F);
-  n = strlen(line4);
-  for(i=0;i<n;i++)
-  {
-      dataWrite(line4[i]);
-  }
-  dataWrite(0b11011111);
-  dataWrite('F');
+//  commandWrite(0xC0+0x10);
+//  delayMicro(100);
+//  commandWrite(0x0F);
+//  n = strlen(line4);
+//  for(i=0;i<n;i++)
+//  {
+//      dataWrite(line4[i]);
+//  }
+//  dataWrite(0b11011111);
+//  dataWrite('F');
 
 }
 
@@ -819,3 +824,4 @@ void printTime(){
 //
 //    ADC14->CLRIFGR1     &=    ~0b1111110;                 // Clear all IFGR1 Interrupts (Bits 6-1.  These could trigger an interrupt and we are checking them for now.)
 //}
+
