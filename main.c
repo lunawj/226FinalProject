@@ -39,9 +39,7 @@ void setupPorts(); // Sets up P1.0 as an output to drive the on board LED
 void setupSerial(); // Sets up serial for use and enables interrupts
 
 void changeLED(char color, int percent);
-void redBrightness(int dutyCycle);
-void blueBrightness(int dutyCycle);
-void greenBrightness(int dutyCycle);
+void setBrightness(unsigned int dutyCycle);
 void initializePWM();
 
 void printTime();
@@ -214,64 +212,25 @@ int main(void)
 }
 
 
-//
-///*----------------------------------------------------------------
-// * void setBlueBrightness()
-// *
-// * Description: Saves duty cycle to blueBright and changes the
-// *              LED brightness
-// * Inputs: None
-// * Outputs: None
-//----------------------------------------------------------------*/
-//void setBlueBrightness()
-//{
-//    unsigned int dutyCycle;
-//    if(dutyCycle > 100)
-//    {
-//        dutyCycle = 100;
-//    }
-//    blueBright = dutyCycle;
-//    TIMER_A1->CCR[2] = (int)((dutyCycle /100.00) * 60000);
-//}
-//
-///*----------------------------------------------------------------
-// * void setRedBrightness()
-// *
-// * Description: Saves duty cycle to redBright and changes the
-// *              LED brightness
-// * Inputs: None
-// * Outputs: None
-//----------------------------------------------------------------*/
-//void setRedBrightness()
-//{
-//    unsigned int dutyCycle;
-//    if(dutyCycle > 100)
-//    {
-//        dutyCycle = 100;
-//    }
-//    redBright = dutyCycle;
-//    TIMER_A1->CCR[3] = (int)((dutyCycle /100.00) * 60000);
-//}
-//
-///*----------------------------------------------------------------
-// * void setGreenBrightness()
-// *
-// * Description: Saves duty cycle to greenBright and changes the
-// *              LED brightness
-// * Inputs: None
-// * Outputs: None
-//----------------------------------------------------------------*/
-//void setGreenBrightness()
-//{
-//    unsigned int dutyCycle;
-//    if(dutyCycle > 100)
-//    {
-//        dutyCycle = 100;
-//    }
-//    greenBright = dutyCycle;
-//    TIMER_A1->CCR[4] = (int)((dutyCycle /100.00) * 60000);
-//}
-//
+
+/*----------------------------------------------------------------
+ * void setBrightness(unsigned int dutyCycle)
+ *
+ * Description: Changes the
+ *              LED brightness
+ * Inputs: None
+ * Outputs: None
+----------------------------------------------------------------*/
+void setBrightness(unsigned int dutyCycle)
+{
+    if(dutyCycle > 100)
+    {
+        dutyCycle = 100;
+    }
+    TIMER_A1->CCR[2] = (int)((dutyCycle /100.00) * 60000);
+    TIMER_A1->CCR[1] = (int)((dutyCycle /100.00) * 60000);
+}
+
 
 /*----------------------------------------------------------------
  * void initializePWM()
@@ -280,7 +239,7 @@ int main(void)
  * Inputs: None
  * Outputs: None
 ----------------------------------------------------------------*/
-/*
+
 void initializePWM()
 {
     P2->SEL0 |= BIT4|BIT5;
@@ -288,102 +247,23 @@ void initializePWM()
     P2->DIR |=BIT4|BIT5;    // Set pins as outputs.  Also required for PWM output.
     P2->OUT &= ~BIT4|BIT5;   // output.
 
-    TIMER_A0->CCR[0] = 37500;  //Running at 40 Hz
+//    P7->SEL0 |= (BIT4|BIT5|BIT6|BIT7);
+//    P7->SEL1 &= ~(BIT4|BIT5|BIT6|BIT7);;  // Setting SEL0 = 1 and SEL1 = 0 will activate the secondary function of these pins.
+//    P7->DIR |=(BIT4|BIT5|BIT6|BIT7);;    // Set pins as outputs.  Also required for PWM output.
+//    P7->OUT &= ~(BIT4|BIT5|BIT6|BIT7);;   // output.
+    //P7 is A1
+    //P5 is A2
 
+    TIMER_A0->CCR[0] = 50000;  //Running at 60 Hz
     TIMER_A0->CCTL[1] = 0b0000000011100000;  //reset / set
-    TIMER_A0->CCR[1] = 36500;//100 % duty cycle
     TIMER_A0->CCTL[2] = 0b0000000011100000;  //reset / set
-    TIMER_A0->CCR[2] = 36500;//100 % duty cycle
-    TIMER_A0->CTL = 0b0000001001010100;//input divider by /2
-
-    P7->SEL0 |= (BIT4|BIT5|BIT6|BIT7);
-    P7->SEL1 &= ~(BIT4|BIT5|BIT6|BIT7);;  // Setting SEL0 = 1 and SEL1 = 0 will activate the secondary function of these pins.
-    P7->DIR |=(BIT4|BIT5|BIT6|BIT7);;    // Set pins as outputs.  Also required for PWM output.
-    P7->OUT &= ~(BIT4|BIT5|BIT6|BIT7);;   // output.
-
-    TIMER_A1->CCR[0] = 60000;  //Running at 50 Hz
-    TIMER_A1->CCTL[1] = 0b0000000011100000;  //reset / set
-    TIMER_A1->CCTL[2] = 0b0000000011100000;  //reset / set
-    TIMER_A1->CCTL[3] = 0b0000000011100000;  //reset / set
-    TIMER_A1->CCTL[4] = 0b0000000011100000;  //reset / set
-    TIMER_A1->CCR[1] = 60000 * (1/20);//closed
-    TIMER_A1->CCR[2] = 60000;//Blue LED on
-    TIMER_A1->CCR[3] = 60000;//Red LED on
-    TIMER_A1->CCR[4] = 60000;//Green LED on
-    TIMER_A1->CTL = 0b0000001000010100;
+    TIMER_A0->CCR[1] = 50000;// Timer LED
+    TIMER_A0->CCR[2] = 50000;// Timer LED
+    TIMER_A0->CTL = 0b0000001000010100;
 }
-*/
 
-//
-//
-///*----------------------------------------------------------------
-// * void PORT3_IRQHandler(void)
-// *
-// * Description: interrupt handler for the light switch button
-// * Inputs: None
-// * Outputs: None
-//----------------------------------------------------------------*/
-//void PORT3_IRQHandler(void)
-//{
-//    if(P3 -> IFG & BIT2)
-//    {
-//        P3 -> IFG &= ~BIT2;
-//    }
-//    return;
-//}
-//
-///*----------------------------------------------------------------
-// * void PORT2_IRQHandler(void)
-// *
-// * Description: interrupt handler for the motor button
-// * Inputs: None
-// * Outputs: None
-//----------------------------------------------------------------*/
-//void PORT2_IRQHandler(void)
-//{
-//    if(P2 -> IFG & BIT6)
-//    {
-//        P2 -> IFG &= ~BIT6;
-//    }
-//    return;
-//}
-//
-///*----------------------------------------------------------------
-// * void initInterruptPins()
-// *
-// * Description: initializes button interrupts for the motor and lights
-// * Inputs: None
-// * Outputs: None
-//----------------------------------------------------------------*/
-//void initInterruptPins()
-//{
-//    //LIGHT SWITCH
-//    P3 -> SEL0 &= ~BIT2;
-//    P3 -> SEL1 &= ~BIT2;
-//    P3 -> DIR &= ~BIT2;
-//    P3 -> REN |= BIT2;
-//    P3 -> OUT |= BIT2;
-//    P3 -> IE |= BIT2;
-//    P3 -> IES |= BIT2;
-//    P3 -> IFG &= ~BIT2;
-//
-//    //EMERGENCY STOP FOR MOTOR
-//    P2 -> SEL0 &= ~BIT6;
-//    P2 -> SEL1 &= ~BIT6;
-//    P2 -> DIR &= ~BIT6;
-//    P2 -> REN |= BIT6;
-//    P2 -> OUT |= BIT6;
-//    P2 -> IE |= BIT6;
-//    P2 -> IES |= BIT6;
-//    P2 -> IFG &= ~BIT6;
-//
-//}
-//
-//
-//
-//
-//
-//
+
+
 ///*----------------------------------------------------------------
 // * void initT32()
 // *
@@ -414,19 +294,19 @@ void initializePWM()
 //                                                        // Bit 2 to 1 to Clear and Load Settings.
 //}
 //
-///*----------------------------------------------------------------
-// * void SpeakerConfig(void)
-// *
-// * Description: Set Speaker pin to PWM controlled by Timer_A0
-// * Inputs: None
-// * Outputs: None
-//----------------------------------------------------------------*/
-//void SpeakerConfig(void)
-//{
-//    P5->SEL0            |=   BIT7;                      // Configure P2.4 to TIMER_A0 PWM Control
-//    P5->SEL1            &=  ~BIT7;                      // SEL = 01 sets to PWM Control
-//    P5->DIR             |=   BIT7;                      // Initialize speaker pin as an output
-//}
+/*----------------------------------------------------------------
+ * void SpeakerConfig(void)
+ *
+ * Description: Set Speaker pin to PWM controlled by Timer_A0
+ * Inputs: None
+ * Outputs: None
+----------------------------------------------------------------*/
+void SpeakerConfig(void)
+{
+    P5->SEL0            |=   BIT7;                      // Configure P.7 to TIMER_A2 PWM Control
+    P5->SEL1            &=  ~BIT7;                      // SEL = 01 sets to PWM Control
+    P5->DIR             |=   BIT7;                      // Initialize speaker pin as an output
+}
 
 /*----------------------------------------------------------------
  * Description:
@@ -579,73 +459,6 @@ void setupSerial()
     NVIC_EnableIRQ(EUSCIA0_IRQn);
 }
 
-void changeLED(char color, int percentage)
-{
-    if(color == 'R')
-    {
-        redBrightness(percentage);
-    }
-
-    if(color == 'B')
-    {
-        blueBrightness(percentage);
-    }
-
-    if(color == 'G')
-    {
-        greenBrightness(percentage);
-    }
-}
-
-void redBrightness(int dutyCycle){
-    if(dutyCycle > 100){
-        dutyCycle = 100;
-    }else if(dutyCycle < 0){
-        dutyCycle = 0;
-    }
-    TIMER_A0->CCR[2] = (int)((dutyCycle /100.00) * 999);
-}
-
-void blueBrightness(int dutyCycle){
-   if(dutyCycle > 100){
-           dutyCycle = 100;
-   }else if(dutyCycle < 0){
-       dutyCycle = 0;
-   }
-   TIMER_A0->CCR[1] = (int)((dutyCycle /100.00) * 999);
-}
-
-void greenBrightness(int dutyCycle){
-   if(dutyCycle > 100){
-       dutyCycle = 100;
-   }else if(dutyCycle < 0){
-       dutyCycle = 0;
-   }
-   TIMER_A0->CCR[3] = (int)((dutyCycle /100.00) * 999);
-}
-
-/*----------------------------------------------------------------
- * void initializePWM()
- *
- * Description: initializes the PWM pins and timers
- * Inputs: None
- * Outputs: None
-----------------------------------------------------------------*/
-void initializePWM(){
-    P2->SEL0 |= (BIT4|BIT5|BIT6);
-    P2->SEL1 &= ~(BIT4|BIT5|BIT6);  // Setting SEL0 = 1 and SEL1 = 0 will activate the secondary function of these pins.
-    P2->DIR |=(BIT4|BIT5|BIT6);    // Set pins as outputs.  Also required for PWM output.
-    P2->OUT &= ~(BIT4|BIT5|BIT6);   // output.
-
-    TIMER_A0->CTL = 0b0000001000010100;
-    TIMER_A0->CCR[0] = 999;  //Running at 60 Hz
-    TIMER_A0->CCTL[1] = 0b0000000011100000;  //reset / set
-    TIMER_A0->CCTL[2] = 0b0000000011100000;  //reset / set
-    TIMER_A0->CCTL[3] = 0b0000000011100000;  //reset / set
-    TIMER_A0->CCR[1] = 999*(1/2.0);//Blue LED on
-    TIMER_A0->CCR[2] = 999*(1/2.0);//Red LED on
-    TIMER_A0->CCR[3] = 999*(1/2.0);//Green LED on
-}
 
 void readAlarm(){
     char buff[20];
@@ -752,76 +565,76 @@ void printTime(){
 
 }
 
-////remember that this was done with a timer. fix later
-//int getTemp(){
-//    float result_temp;
-//     uint16_t result;
-//
-////    while(1)
-////    {
-//        ADC14->CTL0 |=0b1;
-//        result = temp;
-//        result_temp = ((result*3.3)/16384);
-//        result_temp = (result_temp * 1000 - 500)/10;
-//        result_temp = 32 + (result_temp * 9.0/5.0);
-//        return result_temp;
-//
-////    }
-//
-//}
-//
-//
-///*----------------------------------------------------------------
-// * void ADC14init(void)
-// *
-// * Description: Function will set up the ADC14 to run in single
-// * measurement mode and to interrupt upon conversion.
-// * Clock Source: SMCLK
-// * Clock DIV:   32
-// * Resolution: 10 bits
-// * Inputs: None
-// * Outputs: None
-//----------------------------------------------------------------*/
-//void ADC14init(void)
-//{
-//    //For Analog Input 8
-////    P4->SEL0            |=   BIT5;                      // Select ADC Operation
-////    P4->SEL1            |=   BIT5;                      // SEL = 11 sets to ADC operation
-//    P5->SEL0            |=   BIT5;                      // Select ADC Operation
-//    P5->SEL1            |=   BIT5;                      // SEL = 11 sets to ADC operation
-//
-//    ADC14->CTL0         =    0;                         // Disable ADC for setup
-//
-//    // CTL0 Configuration
-//    // 31-30 = 10   to divide down input clock by 32X
-//    // 26    = 1    to sample based on the sample timer.  This enables the use of bits 11-8 below.
-//    // 21-19 = 100  for SMCLK
-//    // 18-17 = 01   for reading multiple channels at once
-//    // 11-8  = 0011 for 32 clk sample and hold time
-//    // 7     = 0    for one ADC channel being read
-//    // 4     = 1    to turn on ADC
-//    ADC14->CTL0         =    0b10000100001000100000001100010000;
-//
-//    ADC14->CTL1         =    BIT5;         // Bits 5 = 11 to enable 14 bit conversion
-//                                                     // Bit 23 turns on Temperature Sensor
-//    ADC14->MCTL[0]      =    0|BIT7;                         // A0 on P4.5, BIT7 says stop converting after this ADC
-//    //ADC14->MCTL[1]      =    8;                         // A8 on P4.5
-//    //ADC14->MCTL[2]      =    22 | BIT7;                 // Internal Temperature Sensor on A22 WHICH IS P6.3
-//                                                        // BIT7 says to stop converting after this ADC.
-//    ADC14->IER0         |=   BIT0;            // Interrupt on for all three conversions
-//
-//    ADC14->CTL0         |=   0b10;                      // Enable Conversion
-//    NVIC->ISER[0]       |=   1<<ADC14_IRQn;             // Turn on ADC Interrupts in NVIC.  Equivalent to "NVIC_EnableIRQ(ADC14_IRQn);"
-//}
-////Interrupts
-//void ADC14_IRQHandler(void)
-//{
-//    if(ADC14->IFGR0 & BIT0)
+//remember that this was done with a timer. fix later
+int getTemp(){
+    float result_temp;
+     uint16_t result;
+
+//    while(1)
 //    {
-//       temp = ADC14->MEM[0];
-//        ADC14->CLRIFGR0     &=  ~BIT0;                  // Clear MEM0 interrupt flag
+        ADC14->CTL0 |=0b1;
+        result = temp;
+        result_temp = ((result*3.3)/16384);
+        result_temp = (result_temp * 1000 - 500)/10;
+        result_temp = 32 + (result_temp * 9.0/5.0);
+        return result_temp;
+
 //    }
-//
-//    ADC14->CLRIFGR1     &=    ~0b1111110;                 // Clear all IFGR1 Interrupts (Bits 6-1.  These could trigger an interrupt and we are checking them for now.)
-//}
+
+}
+
+
+/*----------------------------------------------------------------
+ * void ADC14init(void)
+ *
+ * Description: Function will set up the ADC14 to run in single
+ * measurement mode and to interrupt upon conversion.
+ * Clock Source: SMCLK
+ * Clock DIV:   32
+ * Resolution: 10 bits
+ * Inputs: None
+ * Outputs: None
+----------------------------------------------------------------*/
+void ADC14init(void)
+{
+    //For Analog Input 8
+//    P4->SEL0            |=   BIT5;                      // Select ADC Operation
+//    P4->SEL1            |=   BIT5;                      // SEL = 11 sets to ADC operation
+    P5->SEL0            |=   BIT5;                      // Select ADC Operation
+    P5->SEL1            |=   BIT5;                      // SEL = 11 sets to ADC operation
+
+    ADC14->CTL0         =    0;                         // Disable ADC for setup
+
+    // CTL0 Configuration
+    // 31-30 = 10   to divide down input clock by 32X
+    // 26    = 1    to sample based on the sample timer.  This enables the use of bits 11-8 below.
+    // 21-19 = 100  for SMCLK
+    // 18-17 = 01   for reading multiple channels at once
+    // 11-8  = 0011 for 32 clk sample and hold time
+    // 7     = 0    for one ADC channel being read
+    // 4     = 1    to turn on ADC
+    ADC14->CTL0         =    0b10000100001000100000001100010000;
+
+    ADC14->CTL1         =    BIT5;         // Bits 5 = 11 to enable 14 bit conversion
+                                                     // Bit 23 turns on Temperature Sensor
+    ADC14->MCTL[0]      =    0|BIT7;                         // A0 on P4.5, BIT7 says stop converting after this ADC
+    //ADC14->MCTL[1]      =    8;                         // A8 on P4.5
+    //ADC14->MCTL[2]      =    22 | BIT7;                 // Internal Temperature Sensor on A22 WHICH IS P6.3
+                                                        // BIT7 says to stop converting after this ADC.
+    ADC14->IER0         |=   BIT0;            // Interrupt on for all three conversions
+
+    ADC14->CTL0         |=   0b10;                      // Enable Conversion
+    NVIC->ISER[0]       |=   1<<ADC14_IRQn;             // Turn on ADC Interrupts in NVIC.  Equivalent to "NVIC_EnableIRQ(ADC14_IRQn);"
+}
+//Interrupts
+void ADC14_IRQHandler(void)
+{
+    if(ADC14->IFGR0 & BIT0)
+    {
+       temp = ADC14->MEM[0];
+        ADC14->CLRIFGR0     &=  ~BIT0;                  // Clear MEM0 interrupt flag
+    }
+
+    ADC14->CLRIFGR1     &=    ~0b1111110;                 // Clear all IFGR1 Interrupts (Bits 6-1.  These could trigger an interrupt and we are checking them for now.)
+}
 
