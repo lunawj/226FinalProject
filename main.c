@@ -46,7 +46,7 @@ void readTime();
 void setAlarm(int hour, int minute);
 void setTime(int hour, int minute, int second);
 int getTemp();
-void Buttoninit(); //initalize buttons
+void Buttoninit();
 ///////////////////////////////
 //alarm
 int AHOUR = 0, AMIN = 0, alarm = 0;
