@@ -228,12 +228,15 @@ int main(void)
     while(1){                                       // Main loop of program
                if(time_update){                            // Time Update Occurred (from interrupt handler)
                    time_update = 0;                        // Reset Time Update Notification Flag
-                   if(display_state)
-                       printf("Alarm = %02d:%02d\n",(RTC_C->AMINHR & 0x7F00)>>8,RTC_C->AMINHR & 0x007F); // Print time with mandatory 2 digits  each for hours, mins, seconds
-                   else
-                       printTime();
-                       //printf("Time = %02d:%02d:%02d\n",hours,mins,secs); // Print time with mandatory 2 digits  each for hours, mins, seconds
-               }
+                   AHOUR= (RTC_C->AMINHR & 0x7F00)>>8; //Sets the ALARM hour
+                   AMIN = (RTC_C->AMINHR & 0x007F); //Sets the ALARM minute
+                   printTime();
+//                   if(display_state)
+//                       printf("Alarm = %02d:%02d\n",(RTC_C->AMINHR & 0x7F00)>>8,RTC_C->AMINHR & 0x007F); // Print time with mandatory 2 digits  each for hours, mins, seconds
+//                   else
+//                       printTime();
+//                       //printf("Time = %02d:%02d:%02d\n",hours,mins,secs); // Print time with mandatory 2 digits  each for hours, mins, seconds
+//               }
                if(alarm_update){                           // Alarm Update Occurred (from interrupt handler)
                    printf("ALARM\n");                      // Display Alarm status to user
                    alarm_update = 0;                       // Reset Alarm Update Notification Flag
