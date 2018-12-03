@@ -1123,7 +1123,7 @@ void P1_Init() {
  *
  * Description: Displays a message on the LCD and toggles/sounds alarm
  * Inputs: an integer flag that determines whether the alarm should sound
- * Outputs: Sound to speaker
+ * Outputs: Sound to speakerr
 ----------------------------------------------------------------*/
 void Alarm()
 {
