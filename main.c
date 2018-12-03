@@ -526,13 +526,14 @@ void printTime(){
    char line3[20];
    char line4[20];
    int i, n;
+   printf("%d\n", hours);
    if(hours <= 12)
      {
-         sprintf(line1, "%d:%02d:%02d AM%c", hours, mins, secs,'\0');
-     }else if(hours == 0){
-         sprintf(line1, "%d:%02d:%02d AM%c", 12, MIN, SEC, '\0');
+         sprintf(line1, "%d:%02d:%02d AM %c", hours, mins, secs,'\0');
+     }else if(hours == 24){
+         sprintf(line1, "%d:%02d:%02d AM %c", 12, mins, secs, '\0');
      }else if(hours > 12){
-         sprintf(line1, "%d:%02d:%02d PM%c", hours-12, mins, secs, '\0');
+         sprintf(line1, "%d:%02d:%02d PM %c", (hours-12), mins, secs, '\0');
      }
 
    if(alarm == 2)
@@ -546,11 +547,11 @@ void printTime(){
 
    if(AHOUR <= 12)
    {
-       sprintf(line3, "%d:%02d AM%c", AHOUR, AMIN, '\0');
-   }else if(AHOUR == 0){
-       sprintf(line3, "%d:%02d AM%c", 12, AMIN, '\0');
+       sprintf(line3, "%d:%02d AM %c", AHOUR, AMIN, '\0');
+   }else if(AHOUR == 24){
+       sprintf(line3, "%d:%02d AM %c", 12, AMIN, '\0');
    }else if(AHOUR > 12){
-       sprintf(line3, "%d:%02d PM%c", AHOUR-12, AMIN, '\0');
+       sprintf(line3, "%d:%02d PM %c", AHOUR-12, AMIN, '\0');
    }
 
    //sprintf(line4,"%.1d%c", getTemp(), '\0');
@@ -797,7 +798,7 @@ void RTC_Init(){
     RTC_C->CTL13 = 0;
 
     RTC_C->TIM0 = 45<<8 | 55;//45 min, 55 secs
-    RTC_C->TIM1 = 1<<8 | 14;  //Monday, 2 pm
+    RTC_C->TIM1 = 1<<8 | 23;  //Monday, 11 pm
     RTC_C->YEAR = 2018;
     //Alarm at 2:46 pm
     RTC_C->AMINHR = 14<<8 | 46 | BIT(15) | BIT(7);  //bit 15 and 7 are Alarm Enable bits
@@ -834,10 +835,15 @@ void RTC_C_IRQHandler()
             RTC_C->TIM0 = (((RTC_C->TIM0 & 0xFF00) >> 8)+1)<<8;  // Add a minute if at 59 seconds.  This also resets seconds.
             //RTC_C->TIM0 = 0;
             if(mins == 59 ) {
-                       RTC_C->TIM0 = 0<<8;  // Add a minute if at 59 seconds.  This also resets seconds.
-                       RTC_C->TIM1 = (RTC_C->TIM1 & 0x00FF) + 1;
-                   }
+                   RTC_C->TIM0 = 0<<8;  // Add a minute if at 59 seconds.  This also resets seconds.
+                   RTC_C->TIM1 = (RTC_C->TIM1 & 0x00FF) + 1;
+            }
         }
+        if(hours == 25)
+        {
+           RTC_C->TIM1 = 1;
+           hours = 1;
+       }
 
         RTC_C->PS1CTL &= ~BIT0;                         // Reset interrupt flag
         time_update = 1;                                     // Send flag to main program to notify a time update occurred.
