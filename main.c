@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include "SysTickInitialization.h"
 #include "LCDinitialization.h"
-
+//hello
 /**
  * main.c
  * Summary: This code creates a home security system for a model home. It uses various
