@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include "SysTickInitialization.h"
 #include "LCDinitialization.h"
-//hello
+
 /**
  * main.c
  * Summary: This code creates a home security system for a model home. It uses various
@@ -832,7 +832,7 @@ void RTC_C_IRQHandler()
         }
         else {
             RTC_C->TIM0 = (((RTC_C->TIM0 & 0xFF00) >> 8)+1)<<8;  // Add a minute if at 59 seconds.  This also resets seconds.
-            RTC_C->TIM0 = 0;
+            //RTC_C->TIM0 = 0;
             if(mins == 59 ) {
                        RTC_C->TIM0 = 0<<8;  // Add a minute if at 59 seconds.  This also resets seconds.
                        RTC_C->TIM1 = (RTC_C->TIM1 & 0x00FF) + 1;
