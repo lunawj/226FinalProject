@@ -503,6 +503,7 @@ void setAlarm(int hour, int minute){
     AHOUR = hour;
     AMIN = minute;
     RTC_C->AMINHR = AHOUR<<8 | AMIN | BIT(15) | BIT(7);  //bit 15 and 7 are Alarm Enable bits
+    RTC_C->TIM0 = mins<<8 | secs;//min, secs
     alarm = 1;
     char buff[20];
     writeOutput("Alarm set to ");
@@ -531,6 +532,9 @@ void printTime(){
    char line3[20];
    char line4[20];
    int i, n;
+   if(hours >=25){
+         hours = 1;
+     }
    if(hours < 12)
      {
          sprintf(line1, "%d:%02d:%02d AM %c", hours, mins, secs,'\0');
@@ -618,6 +622,9 @@ void printSetTime(int blink, int spot){
          resetLCD();
    }
    int i, n;
+   if(hours >=25){
+       hours = 1;
+   }
    if(blink%2){
        if(hours < 12)
          {
@@ -699,6 +706,9 @@ void printSetAlarm(int blink, int spot){
       resetLCD();
    }
    int i, n;
+   if(hours >=25){
+         hours = 1;
+     }
    if(blink%2){
        if(AHOUR < 12)
           {
@@ -867,79 +877,107 @@ void Buttoninit()
 }
 
 void PORT4_IRQHandler(void)//SET TIME/ALARM interrupt
-{ int butcount = 0, hour,minute;
-    if(P4 -> IFG & BIT0)// Set Time
-    {  //Hours flash
-        //Hours roll over and AM/PM update
-        //Press Set Time button to move onto Minutes update
-        //Minutes Flash
-        //Minute roll over
-        //Press Set Time button to finish setting the time
-        if(!(P4 ->IN & BIT0)){
-            butcount=butcount+1;
-        }
-     if(butcount==0)
-     {
-        if(!(P4->IN & BIT2)) //Up button
-        {
-            hour=hour+1;
-        }
-        if(!(P4->IN & BIT2))//Down button
-        {
-            hour=hour-1;
-        }
-     }
-     if(butcount==1)
-     {
-         if(!(P4->IN & BIT2)) //Up button
+{
+    int butcount = 0, i = 0, spot = 1;
+    while(P4 -> IFG & BIT0 || P4 -> IFG & BIT1){
+        if(P4 -> IFG & BIT0)// Set Time
+        {  //Hours flash
+            //Hours roll over and AM/PM update
+            //Press Set Time button to move onto Minutes update
+            //Minutes Flash
+            //Minute roll over
+            //Press Set Time button to finish setting the time
+            setTimeFlag = 1;
+            printSetTime(i, spot);
+         if(butcount==0)
          {
-             minute=minute+1;
+            if(!(P4->IN & BIT2)) //Up button
+            {
+                hours=hours+1;
+            }
+            if(!(P4->IN & BIT3))//Down button
+            {
+                hours=hours-1;
+            }
+            if(!(P4 ->IN & BIT0)){
+                butcount=butcount+1;
+                spot = 2;
+            }
          }
-         if(!(P4->IN & BIT2))//Down button
-         {
-             minute=minute-1;
-         }
-     }
-     if(butcount==2)
-     {
-         butcount = 0;
-         P4 -> IFG &= ~BIT0;//clear flag
-     }
-
-    }else if(P4 -> IFG & BIT1) //Set Alarm
-    {
-        if(!(P4 ->IN & BIT0)){
-            butcount=butcount+1;
-        }
-     if(butcount==0)
-     {
-        if(!(P4->IN & BIT2)) //Up button
-        {
-            hour=hour+1;
-        }
-        if(!(P4->IN & BIT2))//Down button
-        {
-            hour=hour-1;
-        }
-     }
-      if(butcount==1)
+         if(butcount==1)
          {
              if(!(P4->IN & BIT2)) //Up button
              {
-                 minute=minute+1;
+                 mins=mins+1;
              }
-             if(!(P4->IN & BIT2))//Down button
+             if(!(P4->IN & BIT3))//Down button
              {
-                 minute=minute-1;
+                 mins=mins-1;
+             }
+             if(!(P4 ->IN & BIT0)){
+                 butcount=butcount+1;
              }
          }
          if(butcount==2)
          {
+             resetLCD();
              butcount = 0;
-             P4 -> IFG &= ~BIT1;//clear flag
+             P4 -> IFG &= ~BIT0;//clear flag
+             setTimeFlag = 0;
+             RTC_C->TIM0 = mins<<8 | secs;//min, secs
+             RTC_C->TIM1 = (RTC_C->TIM1 & 0xFF00) | hours;  //day, hours
          }
+
+        }else if(P4 -> IFG & BIT1) //Set Alarm
+        {
+            printSetAlarm(i, spot);
+         if(butcount==0)
+         {
+            if(!(P4->IN & BIT2)) //Up button
+            {
+                AHOUR=AHOUR+1;
+            }
+            if(!(P4->IN & BIT3))//Down button
+            {
+                AHOUR=AHOUR-1;
+            }
+            if(!(P4 ->IN & BIT1)){
+                butcount=butcount+1;
+                spot = 2;
+            }
+         }
+          if(butcount==1)
+             {
+                 if(!(P4->IN & BIT2)) //Up button
+                 {
+                     AMIN=AMIN+1;
+                     //P4 -> IFG &= ~BIT1;//clear flag
+                 }
+                 if(!(P4->IN & BIT3))//Down button
+                 {
+                     AMIN=AMIN-1;
+                     //P4 -> IFG &= ~BIT1;//clear flag
+                 }
+                 if(!(P4 ->IN & BIT1)){
+                     butcount=butcount+1;
+                 }
+             }
+             if(butcount==2)
+             {
+                 resetLCD();
+                 butcount = 0;
+                 P4 -> IFG &= ~BIT1;//clear flag
+                 if(alarm){
+                     RTC_C->AMINHR = AHOUR<<8 | AMIN | BIT(15) | BIT(7);  //bit 15 and 7 are Alarm Enable bits
+                 }else{
+                     RTC_C->AMINHR = AHOUR<<8 | AMIN;
+                 }
+
+             }
+        }
+        i++;
     }
-     return;
+    // return;
 }
 /*-------------------------------------------------------------------------------------------------------------------------------
  *
@@ -1123,7 +1161,7 @@ void P1_Init() {
  *
  * Description: Displays a message on the LCD and toggles/sounds alarm
  * Inputs: an integer flag that determines whether the alarm should sound
- * Outputs: Sound to speakerr
+ * Outputs: Sound to speaker
 ----------------------------------------------------------------*/
 void Alarm()
 {
@@ -1134,3 +1172,4 @@ void Alarm()
     TIMER_A2->CCR[2]    =    0;
     delaySeconds(1);
 }
+
