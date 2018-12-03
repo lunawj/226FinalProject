@@ -15,6 +15,25 @@
  * Date: November 1st, 2018
  */
 
+/*----------------------------------------------------------------
+ * Description:
+ * Example code of using the serial port on the MSP432.
+ * Receives commands of either ON or OFF from the serial port to
+ * turn on or off the P1.0 on board LED.
+ * ---------------------------------------------------------------
+ * Revision History:
+ * ---------------------------------------------------------------
+ * Initial Release
+ * Scott Zuidema
+ * 11/2/2018
+ *
+ * Update 1:
+ * Scott Zuidema
+ * 11/3/2018
+ * Changed to 115200 8E2 to make Lab 10 more difficult.
+ * Added writeOutput() function.
+----------------------------------------------------------------*/
+
 /*
 LED PINS
 BLUE  P7.6
@@ -64,8 +83,6 @@ uint8_t hours, mins, secs;
 ///////////////////////////////
 //alarm
 int AHOUR = 0, AMIN = 0, alarm = 0;
-//time
-int HOUR = 0, MIN = 0, SEC = 0;
 uint16_t temp=0;
 
 
@@ -335,28 +352,6 @@ void SpeakerConfig(void)
     P5->DIR             |=   BIT7;                      // Initialize speaker pin as an output
 }
 
-/*----------------------------------------------------------------
- * Description:
- * Example code of using the serial port on the MSP432.
- * Receives commands of either ON or OFF from the serial port to
- * turn on or off the P1.0 on board LED.
- * ---------------------------------------------------------------
- * Revision History:
- * ---------------------------------------------------------------
- * Initial Release
- * Scott Zuidema
- * 11/2/2018
- *
- * Update 1:
- * Scott Zuidema
- * 11/3/2018
- * Changed to 115200 8E2 to make Lab 10 more difficult.
- * Added writeOutput() function.
-----------------------------------------------------------------*/
-
-
-
-
 
 /*----------------------------------------------------------------
  * void writeOutput(char *string)
@@ -497,24 +492,27 @@ void readAlarm(){
 void readTime(){
     char buff[20];
     writeOutput("Time is ");
-    sprintf(buff, "%02d:%02d:%02d%c", HOUR, MIN, SEC, '\0');
+    sprintf(buff, "%02d:%02d:%02d%c", hours, mins, secs, '\0');
     writeOutput(buff);
 }
 void setAlarm(int hour, int minute){
     AHOUR = hour;
     AMIN = minute;
+    RTC_C->AMINHR = AHOUR<<8 | AMIN | BIT(15) | BIT(7);  //bit 15 and 7 are Alarm Enable bits
     char buff[20];
     writeOutput("Alarm set to ");
     sprintf(buff, "%02d:%02d%c", AHOUR, AMIN, '\0');
     writeOutput(buff);
 }
 void setTime(int hour, int minute, int second){
-    HOUR = hour;
-    MIN = minute;
-    SEC = second;
+    hours = hour;
+    mins = minute;
+    secs = second;
+    RTC_C->TIM0 = mins<<8 | secs;//min, secs
+    RTC_C->TIM1 = (RTC_C->TIM1 & 0xFF00) | hours;  //day, hours
     char buff[20];
     writeOutput("Time set to ");
-    sprintf(buff, "%02d:%02d:%02d%c", HOUR, MIN, SEC, '\0');
+    sprintf(buff, "%02d:%02d:%02d%c", hours, mins, secs, '\0');
     writeOutput(buff);
     printTime();
 }
@@ -527,31 +525,35 @@ void printTime(){
    char line4[20];
    int i, n;
    printf("%d\n", hours);
-   if(hours <= 12)
+   if(hours < 12)
      {
          sprintf(line1, "%d:%02d:%02d AM %c", hours, mins, secs,'\0');
      }else if(hours == 24){
          sprintf(line1, "%d:%02d:%02d AM %c", 12, mins, secs, '\0');
      }else if(hours > 12){
          sprintf(line1, "%d:%02d:%02d PM %c", (hours-12), mins, secs, '\0');
+     }else if(hours == 12){
+         sprintf(line1, "%d:%02d:%02d PM %c", 12, mins, secs, '\0');
      }
 
    if(alarm == 2)
   {
-      sprintf(line2,"ALARM SNOOZE%c", '\0');
+      sprintf(line2,"ALARM SNOOZE %c", '\0');
   }else if(alarm == 1){
-      sprintf(line2,"ALARM ON%c", '\0');
+      sprintf(line2,"ALARM ON     %c", '\0');
   }else{
-      sprintf(line2,"ALARM OFF%c", '\0');
+      sprintf(line2,"ALARM OFF    %c", '\0');
   }
 
-   if(AHOUR <= 12)
+   if(AHOUR < 12)
    {
        sprintf(line3, "%d:%02d AM %c", AHOUR, AMIN, '\0');
    }else if(AHOUR == 24){
        sprintf(line3, "%d:%02d AM %c", 12, AMIN, '\0');
    }else if(AHOUR > 12){
        sprintf(line3, "%d:%02d PM %c", AHOUR-12, AMIN, '\0');
+   }else if(hours == 12){
+       sprintf(line1, "%d:%02d PM %c", 12, AMIN, '\0');
    }
 
    //sprintf(line4,"%.1d%c", getTemp(), '\0');
@@ -804,7 +806,7 @@ void RTC_Init(){
     RTC_C->AMINHR = 14<<8 | 46 | BIT(15) | BIT(7);  //bit 15 and 7 are Alarm Enable bits
     RTC_C->ADOWDAY = 0;
     RTC_C->PS1CTL = 0b00010;  //1/64 second interrupt
-
+    //RTC_C->PS1CTL = 0b11010;  //runs every second
     RTC_C->CTL0 = (0xA500) | BIT5; //turn on interrupt
     RTC_C->CTL13 = 0;
     //TODO
@@ -842,7 +844,7 @@ void RTC_C_IRQHandler()
         if(hours == 25)
         {
            RTC_C->TIM1 = 1;
-           hours = 1;
+           hours = (RTC_C->TIM1 & 0xFF00) | 1;
        }
 
         RTC_C->PS1CTL &= ~BIT0;                         // Reset interrupt flag
