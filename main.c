@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include "SysTickInitialization.h"
 #include "LCDinitialization.h"
-//NEED TO TEST BLINKING AND LED FUNCTIONS
+//TODO test LED gradually increasing, alarm functionality, and LCD Blinking
 /**
  * main.c
  * Summary: This code creates a home security system for a model home. It uses various
@@ -527,7 +527,6 @@ void printTime(){
    char line3[20];
    char line4[20];
    int i, n;
-   printf("%d\n", hours);
    if(hours < 12)
      {
          sprintf(line1, "%d:%02d:%02d AM %c", hours, mins, secs,'\0');
@@ -946,15 +945,15 @@ void RTC_Init(){
     RTC_C->CTL0 = (0xA500);
     RTC_C->CTL13 = 0;
 
-    RTC_C->TIM0 = 45<<8 | 55;//45 min, 55 secs
-    RTC_C->TIM1 = 1<<8 | 23;  //Monday, 11 pm
+    RTC_C->TIM0 = 40<<8 | 50;//40 min, 50 secs
+    RTC_C->TIM1 = 1<<8 | 14;  //Monday, 11 pm
     RTC_C->YEAR = 2018;
     //Alarm at 2:46 pm
-    RTC_C->AMINHR = 14<<8 | 46 | BIT(15) | BIT(7);  //bit 15 and 7 are Alarm Enable bits
+    RTC_C->AMINHR = 15<<8 | 5 | BIT(15) | BIT(7);  //bit 15 and 7 are Alarm Enable bits
     RTC_C->ADOWDAY = 0;
     alarm = 1;
-    //RTC_C->PS1CTL = 0b00010;  //1/64 second interrupt
-    RTC_C->PS1CTL = 0b11010;  //runs every second
+    RTC_C->PS1CTL = 0b00010;  //1/64 second interrupt
+    //RTC_C->PS1CTL = 0b11010;  //runs every second
     RTC_C->CTL0 = (0xA500) | BIT5; //turn on interrupt
     RTC_C->CTL13 = 0;
     //TODO
@@ -994,48 +993,59 @@ void RTC_C_IRQHandler()
            RTC_C->TIM1 = 1;
            hours = (RTC_C->TIM1 & 0xFF00) | 1;
         }
-        if(LED==0){
+
             if(hours == AHOUR && mins == AMIN)
             {
-                //sound alarm
-            }else if(AHOUR == (hours + 1) && AMIN < 5 && mins >= 55){
-                //edge case
-                switch(AMIN)
-                {
-                case 1:
-                    if(mins == 56)
+                //sound alarm function goes here
+                //printf("SOUND ALARM\n");    //TODO MUST REMOVE LATER, ONLY FOR TESTING
+            }else if(LED==0 && alarm){
+                if(AHOUR == (hours + 1) && AMIN < 5 && mins >= 55){
+                    //edge cases
+                    switch(AMIN)
                     {
-                        LED = 3;
+                    case 0:
+                        if(mins == 55)
+                        {
+                            LED = 3;
+                        }
+                    case 1:
+                        if(mins == 56)
+                        {
+                            LED = 3;
+                        }
+                        break;
+                    case 2:
+                        if(mins == 57)
+                        {
+                            LED = 3;
+                        }
+                        break;
+                    case 3:
+                        if(mins == 58)
+                        {
+                            LED = 3;
+                        }
+                        break;
+                    case 4:
+                        if(mins == 59)
+                        {
+                            LED = 3;
+                        }
+                        break;
+                    default:
+                        break;
                     }
-                    break;
-                case 2:
-                    if(mins == 57)
-                    {
-                        LED = 3;
-                    }
-                    break;
-                case 3:
-                    if(mins == 58)
-                    {
-                        LED = 3;
-                    }
-                    break;
-                case 4:
-                    if(mins == 59)
-                    {
-                        LED = 3;
-                    }
-                    break;
-                default:
-                    break;
-                }
 
-            }else if(hours == AHOUR && AMIN == (mins + 5)){
-                LED = 3;
+                }else if(hours == AHOUR && AMIN == (mins + 5)){
+                    LED = 3;
+                }
             }
-        }
-        if(LED > 0 && !(LED%3) && LED <= 100){
-            setBrightness(LED/3);     //increase by LED/3
+        if(LED > 0 && LED <= 100 && alarm){
+            //printf("LED turned on\n");  //TODO MUST REMOVE LATER, ONLY FOR TESTING
+            if(!(LED%3))
+            {
+                setBrightness(LED/3);     //increase by LED/3
+            }
             LED++;
         }
         RTC_C->PS1CTL &= ~BIT0;                         // Reset interrupt flag
