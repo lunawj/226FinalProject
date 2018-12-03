@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include "SysTickInitialization.h"
 #include "LCDinitialization.h"
-
+//NEED TO TEST BLINKING AND LED FUNCTIONS
 /**
  * main.c
  * Summary: This code creates a home security system for a model home. It uses various
@@ -55,7 +55,7 @@ void readInput(char* string); // read input characters from INPUT_BUFFER that ar
 void setupPorts(); // Sets up P1.0 as an output to drive the on board LED
 void setupSerial(); // Sets up serial for use and enables interrupts
 
-void changeLED(char color, int percent);
+
 void setBrightness(unsigned int dutyCycle);
 void initializePWM();
 
@@ -85,7 +85,7 @@ uint8_t hours, mins, secs;
 ///////////////////////////////
 //alarm
 int AHOUR = 0, AMIN = 0, alarm = 0;
-uint16_t temp=0;
+uint16_t temp=0, LED = 0;
 
 
 void initializePWM(); //Initializes timer and pins related to pwm
@@ -501,6 +501,7 @@ void setAlarm(int hour, int minute){
     AHOUR = hour;
     AMIN = minute;
     RTC_C->AMINHR = AHOUR<<8 | AMIN | BIT(15) | BIT(7);  //bit 15 and 7 are Alarm Enable bits
+    alarm = 1;
     char buff[20];
     writeOutput("Alarm set to ");
     sprintf(buff, "%02d:%02d%c", AHOUR, AMIN, '\0');
@@ -691,13 +692,13 @@ void printSetAlarm(int blink, int spot){
    if(blink%2){
        if(AHOUR < 12)
           {
-              sprintf(line3, "%d:%02d AM %c", AHOUR, AMIN, '\0');
+              sprintf(line2, "%d:%02d AM %c", AHOUR, AMIN, '\0');
           }else if(AHOUR == 24){
-              sprintf(line3, "%d:%02d AM %c", 12, AMIN, '\0');
+              sprintf(line2, "%d:%02d AM %c", 12, AMIN, '\0');
           }else if(AHOUR > 12){
-              sprintf(line3, "%d:%02d PM %c", AHOUR-12, AMIN, '\0');
+              sprintf(line2, "%d:%02d PM %c", AHOUR-12, AMIN, '\0');
           }else if(hours == 12){
-              sprintf(line1, "%d:%02d PM %c", 12, AMIN, '\0');
+              sprintf(line2, "%d:%02d PM %c", 12, AMIN, '\0');
           }
    }else{
        if(spot == 1){
@@ -951,8 +952,9 @@ void RTC_Init(){
     //Alarm at 2:46 pm
     RTC_C->AMINHR = 14<<8 | 46 | BIT(15) | BIT(7);  //bit 15 and 7 are Alarm Enable bits
     RTC_C->ADOWDAY = 0;
-    RTC_C->PS1CTL = 0b00010;  //1/64 second interrupt
-    //RTC_C->PS1CTL = 0b11010;  //runs every second
+    alarm = 1;
+    //RTC_C->PS1CTL = 0b00010;  //1/64 second interrupt
+    RTC_C->PS1CTL = 0b11010;  //runs every second
     RTC_C->CTL0 = (0xA500) | BIT5; //turn on interrupt
     RTC_C->CTL13 = 0;
     //TODO
@@ -991,8 +993,51 @@ void RTC_C_IRQHandler()
         {
            RTC_C->TIM1 = 1;
            hours = (RTC_C->TIM1 & 0xFF00) | 1;
-       }
+        }
+        if(LED==0){
+            if(hours == AHOUR && mins == AMIN)
+            {
+                //sound alarm
+            }else if(AHOUR == (hours + 1) && AMIN < 5 && mins >= 55){
+                //edge case
+                switch(AMIN)
+                {
+                case 1:
+                    if(mins == 56)
+                    {
+                        LED = 3;
+                    }
+                    break;
+                case 2:
+                    if(mins == 57)
+                    {
+                        LED = 3;
+                    }
+                    break;
+                case 3:
+                    if(mins == 58)
+                    {
+                        LED = 3;
+                    }
+                    break;
+                case 4:
+                    if(mins == 59)
+                    {
+                        LED = 3;
+                    }
+                    break;
+                default:
+                    break;
+                }
 
+            }else if(hours == AHOUR && AMIN == (mins + 5)){
+                LED = 3;
+            }
+        }
+        if(LED > 0 && !(LED%3) && LED <= 100){
+            setBrightness(LED/3);     //increase by LED/3
+            LED++;
+        }
         RTC_C->PS1CTL &= ~BIT0;                         // Reset interrupt flag
         time_update = 1;                                     // Send flag to main program to notify a time update occurred.
 
