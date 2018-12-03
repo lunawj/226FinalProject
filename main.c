@@ -6,6 +6,7 @@
 #include "SysTickInitialization.h"
 #include "LCDinitialization.h"
 //TODO test LED gradually increasing, alarm functionality, and LCD Blinking
+//TODO clear setTimeFlag in button interrupt
 /**
  * main.c
  * Summary: This code creates a home security system for a model home. It uses various
@@ -77,7 +78,7 @@ int time_update = 0, alarm_update = 0;
 
 // display_state 0=show time, 1= show alarm
 int display_state = 0;
-
+int setTimeFlag = 0;
 // Hours, mins, and seconds all positive integers in the range 0-255
 uint8_t hours, mins, secs;
 
@@ -235,26 +236,24 @@ int main(void)
 //                }
 //            }
 //        }
-//   }
-
     while(1){                                       // Main loop of program
-               if(time_update){                            // Time Update Occurred (from interrupt handler)
-                   time_update = 0;                        // Reset Time Update Notification Flag
-                   AHOUR= (RTC_C->AMINHR & 0x7F00)>>8; //Sets the ALARM hour
-                   AMIN = (RTC_C->AMINHR & 0x007F); //Sets the ALARM minute
-                   delayMicro(100);
-                   printTime();
+       if(time_update){                            // Time Update Occurred (from interrupt handler)
+           time_update = 0;                        // Reset Time Update Notification Flag
+           AHOUR= (RTC_C->AMINHR & 0x7F00)>>8; //Sets the ALARM hour
+           AMIN = (RTC_C->AMINHR & 0x007F); //Sets the ALARM minute
+           delayMicro(100);
+           printTime();
 //                   if(display_state)
 //                       printf("Alarm = %02d:%02d\n",(RTC_C->AMINHR & 0x7F00)>>8,RTC_C->AMINHR & 0x007F); // Print time with mandatory 2 digits  each for hours, mins, seconds
 //                   else
 //                       printTime();
 //                       //printf("Time = %02d:%02d:%02d\n",hours,mins,secs); // Print time with mandatory 2 digits  each for hours, mins, seconds
-//               }
-               if(alarm_update){                           // Alarm Update Occurred (from interrupt handler)
-                   printf("ALARM\n");                      // Display Alarm status to user
-                   alarm_update = 0;                       // Reset Alarm Update Notification Flag
-               }
+//                  }
+           if(alarm_update){                           // Alarm Update Occurred (from interrupt handler)
+               printf("ALARM\n");                      // Display Alarm status to user
+               alarm_update = 0;                       // Reset Alarm Update Notification Flag
            }
+       }
     }
 }
 
@@ -508,6 +507,7 @@ void setAlarm(int hour, int minute){
     writeOutput(buff);
 }
 void setTime(int hour, int minute, int second){
+    setTimeFlag = 1;
     hours = hour;
     mins = minute;
     secs = second;
@@ -518,6 +518,7 @@ void setTime(int hour, int minute, int second){
     sprintf(buff, "%02d:%02d:%02d%c", hours, mins, secs, '\0');
     writeOutput(buff);
     printTime();
+    setTimeFlag = 0;
 }
 
 //
@@ -609,7 +610,10 @@ void printTime(){
 void printSetTime(int blink, int spot){
    char line1[20] = "SET TIME";
    char line2[20];
-
+   setTimeFlag = 1;
+   if(blink == 0){
+         resetLCD();
+   }
    int i, n;
    if(blink%2){
        if(hours < 12)
@@ -675,29 +679,33 @@ void printSetTime(int blink, int spot){
    {
        dataWrite(line2[i]);
    }
+   delaySeconds(1);
 }
 
 /*blink should be incremented in the interrupt handler, it will blink every other time the function is called
  * spot is where the time is beig changed.
  * 1 is for hours
  * 2 is for minutes
- *
+ * Always set 0 to blink for the first time
  */
 void printSetAlarm(int blink, int spot){
-   char line1[20] = "SET TIME";
+   char line1[20] = "SET ALARM";
    char line2[20];
 
+   if(blink == 0){
+      resetLCD();
+   }
    int i, n;
    if(blink%2){
        if(AHOUR < 12)
           {
-              sprintf(line2, "%d:%02d AM %c", AHOUR, AMIN, '\0');
+              sprintf(line2, "%02d:%02d AM %c", AHOUR, AMIN, '\0');
           }else if(AHOUR == 24){
-              sprintf(line2, "%d:%02d AM %c", 12, AMIN, '\0');
+              sprintf(line2, "%02d:%02d AM %c", 12, AMIN, '\0');
           }else if(AHOUR > 12){
-              sprintf(line2, "%d:%02d PM %c", AHOUR-12, AMIN, '\0');
+              sprintf(line2, "%02d:%02d PM %c", AHOUR-12, AMIN, '\0');
           }else if(hours == 12){
-              sprintf(line2, "%d:%02d PM %c", 12, AMIN, '\0');
+              sprintf(line2, "%02d:%02d PM %c", 12, AMIN, '\0');
           }
    }else{
        if(spot == 1){
@@ -718,7 +726,7 @@ void printSetAlarm(int blink, int spot){
             }else if(AHOUR == 24){
                 sprintf(line2, "%02d:   AM %c", 12, '\0');
             }else if(AHOUR > 12){
-                sprintf(line2, "%02d:   PM %c", AHOUR, '\0');
+                sprintf(line2, "%02d:   PM %c", AHOUR - 12, '\0');
             }else if(AHOUR == 12){
                 sprintf(line2, "%02d:   PM %c", 12, '\0');
             }
@@ -741,6 +749,7 @@ void printSetAlarm(int blink, int spot){
    {
        dataWrite(line2[i]);
    }
+   delaySeconds(1);
 }
 
 //remember that this was done with a timer. fix later
@@ -972,94 +981,99 @@ void RTC_Init(){
 -------------------------------------------------------------------------------------------------------------------------------*/
 void RTC_C_IRQHandler()
 {
-    if(RTC_C->PS1CTL & BIT0){                           // PS1 Interrupt Happened
-        hours = RTC_C->TIM1 & 0x00FF;                   // Record hours (from bottom 8 bits of TIM1)
-        mins = (RTC_C->TIM0 & 0xFF00) >> 8;             // Record minutes (from top 8 bits of TIM0)
-        secs = RTC_C->TIM0 & 0x00FF;                    // Record seconds (from bottom 8 bits of TIM0)
-        // For increasing the number of seconds  every PS1 interrupt (to allow time travel)
-        if(secs < 59){                                 // If not  59 seconds, add 1 (otherwise 59+1 = 60 which doesn't work)
-            RTC_C->TIM0 = RTC_C->TIM0 + 1;
-        }
-        else {
-            RTC_C->TIM0 = (((RTC_C->TIM0 & 0xFF00) >> 8)+1)<<8;  // Add a minute if at 59 seconds.  This also resets seconds.
-            //RTC_C->TIM0 = 0;
-            if(mins == 59 ) {
-                   RTC_C->TIM0 = 0<<8;  // Add a minute if at 59 seconds.  This also resets seconds.
-                   RTC_C->TIM1 = (RTC_C->TIM1 & 0x00FF) + 1;
+    if(setTimeFlag){
+        RTC_C->PS1CTL &= ~BIT0;                         // Reset interrupt flag
+    }else{
+
+        if(RTC_C->PS1CTL & BIT0){                           // PS1 Interrupt Happened
+            hours = RTC_C->TIM1 & 0x00FF;                   // Record hours (from bottom 8 bits of TIM1)
+            mins = (RTC_C->TIM0 & 0xFF00) >> 8;             // Record minutes (from top 8 bits of TIM0)
+            secs = RTC_C->TIM0 & 0x00FF;                    // Record seconds (from bottom 8 bits of TIM0)
+            // For increasing the number of seconds  every PS1 interrupt (to allow time travel)
+            if(secs < 59){                                 // If not  59 seconds, add 1 (otherwise 59+1 = 60 which doesn't work)
+                RTC_C->TIM0 = RTC_C->TIM0 + 1;
             }
-        }
-        if(hours == 25)
-        {
-           RTC_C->TIM1 = 1;
-           hours = (RTC_C->TIM1 & 0xFF00) | 1;
-        }
-
-            if(hours == AHOUR && mins == AMIN)
-            {
-                //sound alarm function goes here
-                //printf("SOUND ALARM\n");    //TODO MUST REMOVE LATER, ONLY FOR TESTING
-            }else if(LED==0 && alarm){
-                if(AHOUR == (hours + 1) && AMIN < 5 && mins >= 55){
-                    //edge cases
-                    switch(AMIN)
-                    {
-                    case 0:
-                        if(mins == 55)
-                        {
-                            LED = 3;
-                        }
-                    case 1:
-                        if(mins == 56)
-                        {
-                            LED = 3;
-                        }
-                        break;
-                    case 2:
-                        if(mins == 57)
-                        {
-                            LED = 3;
-                        }
-                        break;
-                    case 3:
-                        if(mins == 58)
-                        {
-                            LED = 3;
-                        }
-                        break;
-                    case 4:
-                        if(mins == 59)
-                        {
-                            LED = 3;
-                        }
-                        break;
-                    default:
-                        break;
-                    }
-
-                }else if(hours == AHOUR && AMIN == (mins + 5)){
-                    LED = 3;
+            else {
+                RTC_C->TIM0 = (((RTC_C->TIM0 & 0xFF00) >> 8)+1)<<8;  // Add a minute if at 59 seconds.  This also resets seconds.
+                //RTC_C->TIM0 = 0;
+                if(mins == 59 ) {
+                       RTC_C->TIM0 = 0<<8;  // Add a minute if at 59 seconds.  This also resets seconds.
+                       RTC_C->TIM1 = (RTC_C->TIM1 & 0x00FF) + 1;
                 }
             }
-        if(LED > 0 && LED <= 100 && alarm){
-            //printf("LED turned on\n");  //TODO MUST REMOVE LATER, ONLY FOR TESTING
-            if(!(LED%3))
+            if(hours == 25)
             {
-                setBrightness(LED/3);     //increase by LED/3
+               RTC_C->TIM1 = 1;
+               hours = (RTC_C->TIM1 & 0xFF00) | 1;
             }
-            LED++;
-        }
-        RTC_C->PS1CTL &= ~BIT0;                         // Reset interrupt flag
-        time_update = 1;                                     // Send flag to main program to notify a time update occurred.
 
-    }
-    if(RTC_C->CTL0 & BIT1)                              // Alarm happened!
-    {
-        alarm_update = 1;                               // Send flag to main program to notify a time update occurred.
-        RTC_C->CTL0 = (0xA500) | BIT5;                  // Resetting the alarm flag.  Need to also write the secret code
-                                                        // and rewrite the entire register.
-                                                        // TODO: It seems like there is a better way to preserve what was already
-                                                        // there in case the setup of this register needs to change and this line
-                                                        // is forgotten to be updated.
+                if(hours == AHOUR && mins == AMIN)
+                {
+                    //sound alarm function goes here
+                    //printf("SOUND ALARM\n");    //TODO MUST REMOVE LATER, ONLY FOR TESTING
+                }else if(LED==0 && alarm){
+                    if(AHOUR == (hours + 1) && AMIN < 5 && mins >= 55){
+                        //edge cases
+                        switch(AMIN)
+                        {
+                        case 0:
+                            if(mins == 55)
+                            {
+                                LED = 3;
+                            }
+                        case 1:
+                            if(mins == 56)
+                            {
+                                LED = 3;
+                            }
+                            break;
+                        case 2:
+                            if(mins == 57)
+                            {
+                                LED = 3;
+                            }
+                            break;
+                        case 3:
+                            if(mins == 58)
+                            {
+                                LED = 3;
+                            }
+                            break;
+                        case 4:
+                            if(mins == 59)
+                            {
+                                LED = 3;
+                            }
+                            break;
+                        default:
+                            break;
+                        }
+
+                    }else if(hours == AHOUR && AMIN == (mins + 5)){
+                        LED = 3;
+                    }
+                }
+            if(LED > 0 && LED <= 100 && alarm){
+                //printf("LED turned on\n");  //TODO MUST REMOVE LATER, ONLY FOR TESTING
+                if(!(LED%3))
+                {
+                    setBrightness(LED/3);     //increase by LED/3
+                }
+                LED++;
+            }
+            RTC_C->PS1CTL &= ~BIT0;                         // Reset interrupt flag
+            time_update = 1;                                     // Send flag to main program to notify a time update occurred.
+
+        }
+        if(RTC_C->CTL0 & BIT1)                              // Alarm happened!
+        {
+            alarm_update = 1;                               // Send flag to main program to notify a time update occurred.
+            RTC_C->CTL0 = (0xA500) | BIT5;                  // Resetting the alarm flag.  Need to also write the secret code
+                                                            // and rewrite the entire register.
+                                                            // TODO: It seems like there is a better way to preserve what was already
+                                                            // there in case the setup of this register needs to change and this line
+                                                            // is forgotten to be updated.
+        }
     }
 }
 
