@@ -20,10 +20,8 @@ LED PINS
 BLUE  P7.6
 RED   P7.5
 GREEN P7.4
-
 Speaker
 P5.7
-
 */
 //////////////////////////////////
 /// Making a buffer of 100 characters for serial to store to incoming serial data
@@ -48,22 +46,30 @@ void readTime();
 void setAlarm(int hour, int minute);
 void setTime(int hour, int minute, int second);
 int getTemp();
+
+void RTC_Init();
+void P1_Init();
+void Buttoninit();
+// Time Update Flag to Show Time After an Update.
+// Alarm Update Flag to Show Alarm Happened
+int time_update = 0, alarm_update = 0;
+
+// display_state 0=show time, 1= show alarm
+int display_state = 0;
+
+// Hours, mins, and seconds all positive integers in the range 0-255
+uint8_t hours, mins, secs;
+
+
 ///////////////////////////////
 //alarm
 int AHOUR = 0, AMIN = 0, alarm = 0;
 //time
 int HOUR = 0, MIN = 0, SEC = 0;
 uint16_t temp=0;
-void menu(); //Goes to menu
+
 
 void initializePWM(); //Initializes timer and pins related to pwm
-
-
-//LED
-//void setBlueBrightness();  //Sets blue LED brightness
-//void setRedBrightness();    //Sets red LED brightness
-//void setGreenBrightness();  //Sets green LED brightness
-void lightInterrupt();  //function to create a light switch
 
 
 //SPEAKER
@@ -90,12 +96,9 @@ int greenBright = 100; //green LED's brightness
  */
 /*
 void main(void)
-
 {
     WDT_A->CTL = WDT_A_CTL_PW | WDT_A_CTL_HOLD;     // stop watchdog timer
-
 //    initInterruptPins();
-
 //    initializePWM();
 //    initT32();
 //    TimerA2config();
@@ -109,6 +112,9 @@ void main(void)
 int main(void)
 {
     initSysTick();
+    Buttoninit();//Initalize buttons
+    RTC_Init();  // Initialize the RTC
+    P1_Init();   // Initialize the P1 Buttons as interrupts
     initPins();
     delayMicro(100);
     LCDInit();
@@ -119,6 +125,8 @@ int main(void)
     setupPorts();
     setupSerial();
     initializePWM();
+    NVIC_EnableIRQ(PORT4_IRQn);//SET time and Set alarm interrupt
+    __enable_interrupt(); //enable button interrupts
     INPUT_BUFFER[0]= '\0';  // Sets the global buffer to initial condition of empty
 
     __enable_irq();  // Enable all interrupts (serial)
@@ -127,90 +135,109 @@ int main(void)
     int hour, minute, second,i;
     char function[20];
     //remove while loop after testing
-    while(1) {
-        hour = 0;
-        minute = 0;
-        second = 0;
+//    while(1) {
+//        hour = 0;
+//        minute = 0;
+//        second = 0;
+//
+//        readInput(string); // Read the input up to \n, store in string.  This function doesn't return until \n is received
+//        if(string[0] != '\0'){ // if string is not empty, check the inputted data.
+//            if(!(strcmp(string,"READALARM")))
+//            {
+//                readAlarm();
+//            }else if(!(strcmp(string,"READTIME")))
+//            {
+//                readTime();
+//            }else{
+//
+//
+//                for(i=0; string[i] != ' '; i++)
+//                {
+//                    function[i] = string[i];
+//                }
+//                function[i] = '\0';
+//                if(!(strcmp(function,"SETTIME")))
+//                {
+//
+//                    //convert string to time
+//                    i++;
+//                    hour = string[i] - '0';
+//                    hour*=10;
+//                    i++;
+//                    hour += string[i] - '0';
+//                    i+=2;
+//
+//                    minute = string[i] - '0';
+//                    minute*=10;
+//                    i++;
+//                    minute += string[i] - '0';
+//                    i+=2;
+//
+//                    second = string[i] - '0';
+//                    second*=10;
+//                    i++;
+//                    second += string[i] - '0';
+//
+//                    if(hour<=24 && hour>=0){
+//                        if(minute <= 60 && minute >=0)
+//                            if(second <= 60 && second >=0){
+//                                writeOutput("Valid\n");
+//                                setTime(hour, minute, second);
+//                                valid = 1;
+//                            }
+//                    }
+//                }else if(!(strcmp(function,"SETALARM")))
+//                {
+//                    //convert string to time
+//                   i++;
+//                   hour = string[i] - '0';
+//                   hour*=10;
+//                   i++;
+//                   hour += string[i] - '0';
+//                   i+=2;
+//
+//                   minute = string[i] - '0';
+//                   minute*=10;
+//                   i++;
+//                   minute += string[i] - '0';
+//                   i+=2;
+//
+//                   if(hour<=24 && hour>=0){
+//                       if(minute <= 60 && minute >=0)
+//                       {
+//                           writeOutput("Valid\n");
+//                           setAlarm(hour, minute);
+//                           valid = 1;
+//                       }
+//                   }
+//                }
+//                else{
+//                    writeOutput("Invalid\n");
+//                }
+//            }
+//        }
+//   }
 
-        readInput(string); // Read the input up to \n, store in string.  This function doesn't return until \n is received
-        if(string[0] != '\0'){ // if string is not empty, check the inputted data.
-            if(!(strcmp(string,"READALARM")))
-            {
-                readAlarm();
-            }else if(!(strcmp(string,"READTIME")))
-            {
-                readTime();
-            }else{
-
-
-                for(i=0; string[i] != ' '; i++)
-                {
-                    function[i] = string[i];
-                }
-                function[i] = '\0';
-                if(!(strcmp(function,"SETTIME")))
-                {
-
-                    //convert string to time
-                    i++;
-                    hour = string[i] - '0';
-                    hour*=10;
-                    i++;
-                    hour += string[i] - '0';
-                    i+=2;
-
-                    minute = string[i] - '0';
-                    minute*=10;
-                    i++;
-                    minute += string[i] - '0';
-                    i+=2;
-
-                    second = string[i] - '0';
-                    second*=10;
-                    i++;
-                    second += string[i] - '0';
-
-                    if(hour<=24 && hour>=0){
-                        if(minute <= 60 && minute >=0)
-                            if(second <= 60 && second >=0){
-                                writeOutput("Valid\n");
-                                setTime(hour, minute, second);
-                                valid = 1;
-                            }
-                    }
-                }else if(!(strcmp(function,"SETALARM")))
-                {
-                    //convert string to time
-                   i++;
-                   hour = string[i] - '0';
-                   hour*=10;
-                   i++;
-                   hour += string[i] - '0';
-                   i+=2;
-
-                   minute = string[i] - '0';
-                   minute*=10;
-                   i++;
-                   minute += string[i] - '0';
-                   i+=2;
-
-                   if(hour<=24 && hour>=0){
-                       if(minute <= 60 && minute >=0)
-                       {
-                           writeOutput("Valid\n");
-                           setAlarm(hour, minute);
-                           valid = 1;
-                       }
-                   }
-                }
-                else{
-                    writeOutput("Invalid\n");
-                }
-            }
-        }
-   }
+    while(1){                                       // Main loop of program
+               if(time_update){                            // Time Update Occurred (from interrupt handler)
+                   time_update = 0;                        // Reset Time Update Notification Flag
+                   AHOUR= (RTC_C->AMINHR & 0x7F00)>>8; //Sets the ALARM hour
+                   AMIN = (RTC_C->AMINHR & 0x007F); //Sets the ALARM minute
+                   delayMicro(100);
+                   printTime();
+//                   if(display_state)
+//                       printf("Alarm = %02d:%02d\n",(RTC_C->AMINHR & 0x7F00)>>8,RTC_C->AMINHR & 0x007F); // Print time with mandatory 2 digits  each for hours, mins, seconds
+//                   else
+//                       printTime();
+//                       //printf("Time = %02d:%02d:%02d\n",hours,mins,secs); // Print time with mandatory 2 digits  each for hours, mins, seconds
+//               }
+               if(alarm_update){                           // Alarm Update Occurred (from interrupt handler)
+                   printf("ALARM\n");                      // Display Alarm status to user
+                   alarm_update = 0;                       // Reset Alarm Update Notification Flag
+               }
+           }
+    }
 }
-
 
 
 /*----------------------------------------------------------------
@@ -499,13 +526,13 @@ void printTime(){
    char line3[20];
    char line4[20];
    int i, n;
-   if(HOUR <= 12)
+   if(hours <= 12)
      {
-         sprintf(line1, "%d:%02d:%02d AM%c", HOUR, MIN, SEC,'\0');
-     }else if(HOUR == 0){
+         sprintf(line1, "%d:%02d:%02d AM%c", hours, mins, secs,'\0');
+     }else if(hours == 0){
          sprintf(line1, "%d:%02d:%02d AM%c", 12, MIN, SEC, '\0');
-     }else if(HOUR > 12){
-         sprintf(line1, "%d:%02d:%02d PM%c", HOUR-12, MIN, SEC, '\0');
+     }else if(hours > 12){
+         sprintf(line1, "%d:%02d:%02d PM%c", hours-12, mins, secs, '\0');
      }
 
    if(alarm == 2)
@@ -528,6 +555,7 @@ void printTime(){
 
    //sprintf(line4,"%.1d%c", getTemp(), '\0');
 
+   commandWrite(0X2);
    n = strlen(line1);
    for(i=0;i<n;i++)
    {
@@ -562,6 +590,7 @@ void printTime(){
 //  }
 //  dataWrite(0b11011111);
 //  dataWrite('F');
+
 
 }
 
@@ -638,3 +667,226 @@ void ADC14_IRQHandler(void)
     ADC14->CLRIFGR1     &=    ~0b1111110;                 // Clear all IFGR1 Interrupts (Bits 6-1.  These could trigger an interrupt and we are checking them for now.)
 }
 
+void Buttoninit()
+{
+    //Button for setting time Black button
+    P4 -> SEL0 &= ~BIT0;
+    P4 -> SEL1 &= ~BIT0;
+    P4 -> DIR &= ~BIT0;
+    P4 -> REN |= BIT0;
+    P4 -> OUT |= BIT0;
+    P4 -> IE |= BIT0;
+    P4 -> IES |= BIT0;
+    P4 -> IFG &= ~BIT0;
+
+    //Button Set Alarm Green Button
+    P4 -> SEL0 &= ~BIT1;
+    P4 -> SEL1 &= ~BIT1;
+    P4 -> DIR &= ~BIT1;
+    P4 -> REN |= BIT1;
+    P4 -> OUT |= BIT1;
+    P4 -> IE |= BIT1;
+    P4 -> IES |= BIT1;
+    P4 -> IFG &= ~BIT1;
+
+    //ON, OFF, Up button
+    P4 -> SEL0 &= ~BIT2;
+    P4 -> SEL1 &= ~BIT2;
+    P4 -> DIR &= ~BIT2;
+    P4 -> REN |= BIT2;
+    P4 -> OUT |= BIT2;
+
+    //Snooze, Down button
+    P4 -> SEL0 &= ~BIT3;
+    P4 -> SEL1 &= ~BIT3;
+    P4 -> DIR &= ~BIT3;
+    P4 -> REN |= BIT3;
+    P4 -> OUT |= BIT3;
+
+}
+
+void PORT4_IRQHandler(void)//SET TIME/ALARM interrupt
+{ int butcount = 0, hour,minute;
+    if(P4 -> IFG & BIT0)// Set Time
+    {  //Hours flash
+        //Hours roll over and AM/PM update
+        //Press Set Time button to move onto Minutes update
+        //Minutes Flash
+        //Minute roll over
+        //Press Set Time button to finish setting the time
+        if(!(P4 ->IN & BIT0)){
+            butcount=butcount+1;
+        }
+     if(butcount==0)
+     {
+        if(!(P4->IN & BIT2)) //Up button
+        {
+            hour=hour+1;
+        }
+        if(!(P4->IN & BIT2))//Down button
+        {
+            hour=hour-1;
+        }
+     }
+     if(butcount==1)
+     {
+         if(!(P4->IN & BIT2)) //Up button
+         {
+             minute=minute+1;
+         }
+         if(!(P4->IN & BIT2))//Down button
+         {
+             minute=minute-1;
+         }
+     }
+     if(butcount==2)
+     {
+         butcount = 0;
+         P4 -> IFG &= ~BIT0;//clear flag
+     }
+
+    }else if(P4 -> IFG & BIT1) //Set Alarm
+    {
+        if(!(P4 ->IN & BIT0)){
+            butcount=butcount+1;
+        }
+     if(butcount==0)
+     {
+        if(!(P4->IN & BIT2)) //Up button
+        {
+            hour=hour+1;
+        }
+        if(!(P4->IN & BIT2))//Down button
+        {
+            hour=hour-1;
+        }
+     }
+      if(butcount==1)
+         {
+             if(!(P4->IN & BIT2)) //Up button
+             {
+                 minute=minute+1;
+             }
+             if(!(P4->IN & BIT2))//Down button
+             {
+                 minute=minute-1;
+             }
+         }
+         if(butcount==2)
+         {
+             butcount = 0;
+             P4 -> IFG &= ~BIT1;//clear flag
+         }
+    }
+     return;
+}
+/*-------------------------------------------------------------------------------------------------------------------------------
+ *
+ * void RTC_Init()
+ *
+ * Interrupt setup for RTC.
+ *
+ * This function sets up the RTC to operate, initializes the time and alarm to default values, and creates interrupts
+ * for time updates and alarms.
+ *
+-------------------------------------------------------------------------------------------------------------------------------*/
+void RTC_Init(){
+    //Initialize time to 2:45:55 pm
+//    RTC_C->TIM0 = 0x2D00;  //45 min, 0 secs
+    RTC_C->CTL0 = (0xA500);
+    RTC_C->CTL13 = 0;
+
+    RTC_C->TIM0 = 45<<8 | 55;//45 min, 55 secs
+    RTC_C->TIM1 = 1<<8 | 14;  //Monday, 2 pm
+    RTC_C->YEAR = 2018;
+    //Alarm at 2:46 pm
+    RTC_C->AMINHR = 14<<8 | 46 | BIT(15) | BIT(7);  //bit 15 and 7 are Alarm Enable bits
+    RTC_C->ADOWDAY = 0;
+    RTC_C->PS1CTL = 0b00010;  //1/64 second interrupt
+
+    RTC_C->CTL0 = (0xA500) | BIT5; //turn on interrupt
+    RTC_C->CTL13 = 0;
+    //TODO
+    NVIC_EnableIRQ(RTC_C_IRQn);
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------
+ *
+ * void RTC_C_IRQHandler()
+ *
+ * Interrupt Handler for RTC.  The name of this function is set in startup_msp432p401r_ccs.c
+ *
+ * This handler checks for PS1 flags and Alarm flags.  Sets global variables time_update and alarm_update to 1 when
+ * their respective interrupt occurs.
+ *
+-------------------------------------------------------------------------------------------------------------------------------*/
+void RTC_C_IRQHandler()
+{
+    if(RTC_C->PS1CTL & BIT0){                           // PS1 Interrupt Happened
+        hours = RTC_C->TIM1 & 0x00FF;                   // Record hours (from bottom 8 bits of TIM1)
+        mins = (RTC_C->TIM0 & 0xFF00) >> 8;             // Record minutes (from top 8 bits of TIM0)
+        secs = RTC_C->TIM0 & 0x00FF;                    // Record seconds (from bottom 8 bits of TIM0)
+        // For increasing the number of seconds  every PS1 interrupt (to allow time travel)
+        if(secs < 59){                                 // If not  59 seconds, add 1 (otherwise 59+1 = 60 which doesn't work)
+            RTC_C->TIM0 = RTC_C->TIM0 + 1;
+        }
+        else {
+            RTC_C->TIM0 = (((RTC_C->TIM0 & 0xFF00) >> 8)+1)<<8;  // Add a minute if at 59 seconds.  This also resets seconds.
+            RTC_C->TIM0 = 0;
+            if(mins == 59 ) {
+                       RTC_C->TIM0 = 0<<8;  // Add a minute if at 59 seconds.  This also resets seconds.
+                       RTC_C->TIM1 = (RTC_C->TIM1 & 0x00FF) + 1;
+                   }
+        }
+
+        RTC_C->PS1CTL &= ~BIT0;                         // Reset interrupt flag
+        time_update = 1;                                     // Send flag to main program to notify a time update occurred.
+
+    }
+    if(RTC_C->CTL0 & BIT1)                              // Alarm happened!
+    {
+        alarm_update = 1;                               // Send flag to main program to notify a time update occurred.
+        RTC_C->CTL0 = (0xA500) | BIT5;                  // Resetting the alarm flag.  Need to also write the secret code
+                                                        // and rewrite the entire register.
+                                                        // TODO: It seems like there is a better way to preserve what was already
+                                                        // there in case the setup of this register needs to change and this line
+                                                        // is forgotten to be updated.
+    }
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------
+ *
+ * void PORT1_IRQHandler(void)
+ *
+ * Interrupt Handler for P1.  The name of this function is set in startup_msp432p401r_ccs.c
+ *
+ * This handler checks for interrupts on P1.1 and P1.4 and sets a flag to change the output of the main program.
+ *
+-------------------------------------------------------------------------------------------------------------------------------*/
+void PORT1_IRQHandler(void)
+{
+    if(P1->IFG & BIT1) {                                //If P1.1 had an interrupt
+        display_state = 1;
+    }
+    if(P1->IFG & BIT4) {                                //If P1.4 had an interrupt
+        display_state = 0;
+    }
+    P1->IFG = 0;                                        //Clear all flags
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------
+ *
+ * void P1_Init()
+ *
+ * P1 setup for P1.1 and P1.4 to be button inputs with pull ups and interrupts enabled.
+ *
+-------------------------------------------------------------------------------------------------------------------------------*/
+void P1_Init() {
+    P1->SEL0 &= ~(BIT1|BIT4);
+    P1->SEL1 &= ~(BIT1|BIT4);
+    P1->DIR  &= ~(BIT1|BIT4);
+    P1->REN  |=  (BIT1|BIT4);
+    P1->OUT  |=  (BIT1|BIT4);
+    P1->IE   |=  (BIT1|BIT4);
+    NVIC_EnableIRQ(PORT1_IRQn);
+}
