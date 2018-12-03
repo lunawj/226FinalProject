@@ -69,6 +69,8 @@ int getTemp();
 void RTC_Init();
 void P1_Init();
 void Buttoninit();
+void printSetTime(int blink, int spot);
+void printSetAlarm(int blink, int spot);
 // Time Update Flag to Show Time After an Update.
 // Alarm Update Flag to Show Alarm Happened
 int time_update = 0, alarm_update = 0;
@@ -556,6 +558,7 @@ void printTime(){
        sprintf(line1, "%d:%02d PM %c", 12, AMIN, '\0');
    }
 
+   ////sprintf(line4,"%02.1d%c", getTemp(), '\0');
    //sprintf(line4,"%.1d%c", getTemp(), '\0');
 
    commandWrite(0X2);
@@ -595,6 +598,149 @@ void printTime(){
 //  dataWrite('F');
 
 
+}
+
+/*blink should be incremented in the interrupt handler, it will blink every other time the function is called
+ * spot is where the time is beig changed.
+ * 1 is for hours
+ * 2 is for minutes
+ * 3 is for seconds
+ */
+void printSetTime(int blink, int spot){
+   char line1[20] = "SET TIME";
+   char line2[20];
+
+   int i, n;
+   if(blink%2){
+       if(hours < 12)
+         {
+             sprintf(line2, "%02d:%02d:%02d AM %c", hours, mins, secs,'\0');
+         }else if(hours == 24){
+             sprintf(line2, "%02d:%02d:%02d AM %c", 12, mins, secs, '\0');
+         }else if(hours > 12){
+             sprintf(line2, "%02d:%02d:%02d PM %c", (hours-12), mins, secs, '\0');
+         }else if(hours == 12){
+             sprintf(line2, "%02d:%02d:%02d PM %c", 12, mins, secs, '\0');
+         }
+   }else{
+       if(spot == 1){
+           if(hours < 12)
+            {
+                sprintf(line2, "  :%02d:%02d AM %c", mins, secs,'\0');
+            }else if(hours == 24){
+                sprintf(line2, "  :%02d:%02d AM %c", mins, secs, '\0');
+            }else if(hours > 12){
+                sprintf(line2, "  :%02d:%02d PM %c", mins, secs, '\0');
+            }else if(hours == 12){
+                sprintf(line2, "  :%02d:%02d PM %c", mins, secs, '\0');
+            }
+       }else if (spot == 2){
+           if(hours < 12)
+            {
+                sprintf(line2, "%02d:  :%02d AM %c", hours, secs,'\0');
+            }else if(hours == 24){
+                sprintf(line2, "%02d:  :%02d AM %c", 12, secs, '\0');
+            }else if(hours > 12){
+                sprintf(line2, "%02d:  :%02d PM %c", (hours-12), secs, '\0');
+            }else if(hours == 12){
+                sprintf(line2, "%02d:  :%02d PM %c", 12, secs, '\0');
+            }
+       }else if (spot == 3){
+           if(hours < 12)
+            {
+                sprintf(line2, "%02d:%02d:   AM %c", hours, mins, '\0');
+            }else if(hours == 24){
+                sprintf(line2, "%02d:%02d:   AM %c", 12, mins, '\0');
+            }else if(hours > 12){
+                sprintf(line2, "%02d:%02d:   PM %c", (hours-12), mins, '\0');
+            }else if(hours == 12){
+                sprintf(line2, "%02d:%02d:   PM %c", 12, mins, '\0');
+            }
+       }
+   }
+
+
+   commandWrite(0X2);
+   n = strlen(line1);
+   for(i=0;i<n;i++)
+   {
+       dataWrite(line1[i]);
+   }
+
+   commandWrite(0xC0);
+   delayMicro(100);
+   commandWrite(0x0F);
+   n = strlen(line2);
+   for(i=0;i<n;i++)
+   {
+       dataWrite(line2[i]);
+   }
+}
+
+/*blink should be incremented in the interrupt handler, it will blink every other time the function is called
+ * spot is where the time is beig changed.
+ * 1 is for hours
+ * 2 is for minutes
+ *
+ */
+void printSetAlarm(int blink, int spot){
+   char line1[20] = "SET TIME";
+   char line2[20];
+
+   int i, n;
+   if(blink%2){
+       if(AHOUR < 12)
+          {
+              sprintf(line3, "%d:%02d AM %c", AHOUR, AMIN, '\0');
+          }else if(AHOUR == 24){
+              sprintf(line3, "%d:%02d AM %c", 12, AMIN, '\0');
+          }else if(AHOUR > 12){
+              sprintf(line3, "%d:%02d PM %c", AHOUR-12, AMIN, '\0');
+          }else if(hours == 12){
+              sprintf(line1, "%d:%02d PM %c", 12, AMIN, '\0');
+          }
+   }else{
+       if(spot == 1){
+           if(AHOUR < 12)
+            {
+                sprintf(line2, "  :%02d AM %c", AMIN,'\0');
+            }else if(AHOUR == 24){
+                sprintf(line2, "  :%02d AM %c", AMIN, '\0');
+            }else if(AHOUR > 12){
+                sprintf(line2, "  :%02d PM %c", AMIN, '\0');
+            }else if(AHOUR == 12){
+                sprintf(line2, "  :%02d PM %c", AMIN, '\0');
+            }
+       }else if (spot == 2){
+           if(AHOUR < 12)
+            {
+                sprintf(line2, "%02d:   AM %c", AHOUR,'\0');
+            }else if(AHOUR == 24){
+                sprintf(line2, "%02d:   AM %c", 12, '\0');
+            }else if(AHOUR > 12){
+                sprintf(line2, "%02d:   PM %c", AHOUR, '\0');
+            }else if(AHOUR == 12){
+                sprintf(line2, "%02d:   PM %c", 12, '\0');
+            }
+       }
+   }
+
+
+   commandWrite(0X2);
+   n = strlen(line1);
+   for(i=0;i<n;i++)
+   {
+       dataWrite(line1[i]);
+   }
+
+   commandWrite(0xC0);
+   delayMicro(100);
+   commandWrite(0x0F);
+   n = strlen(line2);
+   for(i=0;i<n;i++)
+   {
+       dataWrite(line2[i]);
+   }
 }
 
 //remember that this was done with a timer. fix later
