@@ -243,10 +243,7 @@ int main(void)
            time_update = 0;                        // Reset Time Update Notification Flag
            AHOUR= (RTC_C->AMINHR & 0x7F00)>>8; //Sets the ALARM hour
            AMIN = (RTC_C->AMINHR & 0x007F); //Sets the ALARM minute
-<<<<<<< HEAD
-=======
            //Alarm();
->>>>>>> branch 'master' of https://github.com/lunawj/226FinalProject
            delayMicro(100);
            printTime();
 //                   if(display_state)
@@ -1111,53 +1108,6 @@ void RTC_C_IRQHandler()
         }
         if(RTC_C->CTL0 & BIT1)                              // Alarm happened!
         {
-<<<<<<< HEAD
-            alarm_update = 1;                               // Send flag to main program to notify a time update occurred.
-            RTC_C->CTL0 = (0xA500) | BIT5;                  // Resetting the alarm flag.  Need to also write the secret code
-                                                            // and rewrite the entire register.
-                                                            // TODO: It seems like there is a better way to preserve what was already
-                                                            // there in case the setup of this register needs to change and this line
-                                                            // is forgotten to be updated.
-        }
-    }
-}
-
-/*-------------------------------------------------------------------------------------------------------------------------------
- *
- * void PORT1_IRQHandler(void)
- *
- * Interrupt Handler for P1.  The name of this function is set in startup_msp432p401r_ccs.c
- *
- * This handler checks for interrupts on P1.1 and P1.4 and sets a flag to change the output of the main program.
- *
--------------------------------------------------------------------------------------------------------------------------------*/
-void PORT1_IRQHandler(void)
-{
-    if(P1->IFG & BIT1) {                                //If P1.1 had an interrupt
-        display_state = 1;
-    }
-    if(P1->IFG & BIT4) {                                //If P1.4 had an interrupt
-        display_state = 0;
-    }
-    P1->IFG = 0;                                        //Clear all flags
-}
-
-/*-------------------------------------------------------------------------------------------------------------------------------
- *
- * void P1_Init()
- *
- * P1 setup for P1.1 and P1.4 to be button inputs with pull ups and interrupts enabled.
- *
--------------------------------------------------------------------------------------------------------------------------------*/
-void P1_Init() {
-    P1->SEL0 &= ~(BIT1|BIT4);
-    P1->SEL1 &= ~(BIT1|BIT4);
-    P1->DIR  &= ~(BIT1|BIT4);
-    P1->REN  |=  (BIT1|BIT4);
-    P1->OUT  |=  (BIT1|BIT4);
-    P1->IE   |=  (BIT1|BIT4);
-    NVIC_EnableIRQ(PORT1_IRQn);
-=======
             Alarm();
             alarm_update = 1;                               // Send flag to main program to notify a time update occurred.
             RTC_C->CTL0 = (0xA500) | BIT5;                  // Resetting the alarm flag.  Need to also write the secret code
@@ -1221,6 +1171,5 @@ void Alarm()
     delaySeconds(1);
     TIMER_A2->CCR[2]    =    0;
     delaySeconds(1);
->>>>>>> branch 'master' of https://github.com/lunawj/226FinalProject
 }
 
