@@ -93,7 +93,7 @@ void initializePWM(); //Initializes timer and pins related to pwm
 
 
 //SPEAKER
-//void alarm(int on); //sounds alarm
+void Alarm(); //sounds alarm
 void TimerA2config(void); // initializes timer A2
 void SpeakerConfig(void); // initializes the speaker
 void ADC14init(void);
@@ -136,6 +136,8 @@ int main(void)
     RTC_Init();  // Initialize the RTC
     P1_Init();   // Initialize the P1 Buttons as interrupts
     initPins();
+    SpeakerConfig();
+    TimerA2config();
     delayMicro(100);
     LCDInit();
     delayMicro(100);
@@ -241,6 +243,10 @@ int main(void)
            time_update = 0;                        // Reset Time Update Notification Flag
            AHOUR= (RTC_C->AMINHR & 0x7F00)>>8; //Sets the ALARM hour
            AMIN = (RTC_C->AMINHR & 0x007F); //Sets the ALARM minute
+<<<<<<< HEAD
+=======
+           //Alarm();
+>>>>>>> branch 'master' of https://github.com/lunawj/226FinalProject
            delayMicro(100);
            printTime();
 //                   if(display_state)
@@ -329,16 +335,16 @@ void initializePWM()
 // * Inputs: None
 // * Outputs: None
 //----------------------------------------------------------------*/
-//void TimerA2config(void)
-//{
-//    TIMER_A2->CCR[0]    =    5714;                    // Initialize the period of TimerA0 PWM to the maximum.  This will change at the first interrupt.  Could be set to something else.
-//    TIMER_A2->CCR[2]    =    (0);                         // Will reset (set to 0) immediately, so it will always be off by default
-//    TIMER_A2->CCTL[2]   =    0b11100000;                // Set to Reset/set Compare Mode (BITs 7-5 set to 1)
-//    TIMER_A2->CTL       =    0b1000010100;              // Bits 9-8 = 10 to Set to SMCLK
-//                                                        // Bits 5-4 = 01 to Set to Count Up Mode
-//                                                        // Bit 2 to 1 to Clear and Load Settings.
-//}
-//
+void TimerA2config(void)
+{
+    TIMER_A2->CCR[0]    =    5714;                    // Initialize the period of TimerA0 PWM to the maximum.  This will change at the first interrupt.  Could be set to something else.
+    TIMER_A2->CCTL[2]   =    0b11100000;                // Set to Reset/set Compare Mode (BITs 7-5 set to 1)
+    TIMER_A2->CCR[2]    =    (0);                         // Will reset (set to 0) immediately, so it will always be off by default
+    TIMER_A2->CTL       =    0b1000010100;              // Bits 9-8 = 10 to Set to SMCLK
+                                                        // Bits 5-4 = 01 to Set to Count Up Mode
+                                                        // Bit 2 to 1 to Clear and Load Settings.
+}
+
 /*----------------------------------------------------------------
  * void SpeakerConfig(void)
  *
@@ -1067,6 +1073,7 @@ void RTC_C_IRQHandler()
         }
         if(RTC_C->CTL0 & BIT1)                              // Alarm happened!
         {
+<<<<<<< HEAD
             alarm_update = 1;                               // Send flag to main program to notify a time update occurred.
             RTC_C->CTL0 = (0xA500) | BIT5;                  // Resetting the alarm flag.  Need to also write the secret code
                                                             // and rewrite the entire register.
@@ -1112,4 +1119,69 @@ void P1_Init() {
     P1->OUT  |=  (BIT1|BIT4);
     P1->IE   |=  (BIT1|BIT4);
     NVIC_EnableIRQ(PORT1_IRQn);
+=======
+            Alarm();
+            alarm_update = 1;                               // Send flag to main program to notify a time update occurred.
+            RTC_C->CTL0 = (0xA500) | BIT5;                  // Resetting the alarm flag.  Need to also write the secret code
+                                                            // and rewrite the entire register.
+                                                            // TODO: It seems like there is a better way to preserve what was already
+                                                            // there in case the setup of this register needs to change and this line
+                                                            // is forgotten to be updated.
+        }
+    }
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------
+ *
+ * void PORT1_IRQHandler(void)
+ *
+ * Interrupt Handler for P1.  The name of this function is set in startup_msp432p401r_ccs.c
+ *
+ * This handler checks for interrupts on P1.1 and P1.4 and sets a flag to change the output of the main program.
+ *
+-------------------------------------------------------------------------------------------------------------------------------*/
+void PORT1_IRQHandler(void)
+{
+    if(P1->IFG & BIT1) {                                //If P1.1 had an interrupt
+        display_state = 1;
+    }
+    if(P1->IFG & BIT4) {                                //If P1.4 had an interrupt
+        display_state = 0;
+    }
+    P1->IFG = 0;                                        //Clear all flags
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------
+ *
+ * void P1_Init()
+ *
+ * P1 setup for P1.1 and P1.4 to be button inputs with pull ups and interrupts enabled.
+ *
+-------------------------------------------------------------------------------------------------------------------------------*/
+void P1_Init() {
+    P1->SEL0 &= ~(BIT1|BIT4);
+    P1->SEL1 &= ~(BIT1|BIT4);
+    P1->DIR  &= ~(BIT1|BIT4);
+    P1->REN  |=  (BIT1|BIT4);
+    P1->OUT  |=  (BIT1|BIT4);
+    P1->IE   |=  (BIT1|BIT4);
+    NVIC_EnableIRQ(PORT1_IRQn);
+}
+
+/*----------------------------------------------------------------
+ * void alarm(int on)
+ *
+ * Description: Displays a message on the LCD and toggles/sounds alarm
+ * Inputs: an integer flag that determines whether the alarm should sound
+ * Outputs: Sound to speakerr
+----------------------------------------------------------------*/
+void Alarm()
+{
+
+    //sound alarm
+    TIMER_A2->CCR[2]    =    5700;
+    delaySeconds(1);
+    TIMER_A2->CCR[2]    =    0;
+    delaySeconds(1);
+>>>>>>> branch 'master' of https://github.com/lunawj/226FinalProject
 }
