@@ -67,16 +67,9 @@ int AHOUR = 0, AMIN = 0, alarm = 0;
 //time
 int HOUR = 0, MIN = 0, SEC = 0;
 uint16_t temp=0;
-void menu(); //Goes to menu
+
 
 void initializePWM(); //Initializes timer and pins related to pwm
-
-
-//LED
-//void setBlueBrightness();  //Sets blue LED brightness
-//void setRedBrightness();    //Sets red LED brightness
-//void setGreenBrightness();  //Sets green LED brightness
-void lightInterrupt();  //function to create a light switch
 
 
 //SPEAKER
@@ -230,6 +223,7 @@ int main(void)
                    time_update = 0;                        // Reset Time Update Notification Flag
                    AHOUR= (RTC_C->AMINHR & 0x7F00)>>8; //Sets the ALARM hour
                    AMIN = (RTC_C->AMINHR & 0x007F); //Sets the ALARM minute
+                   delayMicro(100);
                    printTime();
 //                   if(display_state)
 //                       printf("Alarm = %02d:%02d\n",(RTC_C->AMINHR & 0x7F00)>>8,RTC_C->AMINHR & 0x007F); // Print time with mandatory 2 digits  each for hours, mins, seconds
@@ -242,8 +236,8 @@ int main(void)
                    alarm_update = 0;                       // Reset Alarm Update Notification Flag
                }
            }
+    }
 }
-
 
 
 /*----------------------------------------------------------------
@@ -561,6 +555,7 @@ void printTime(){
 
    //sprintf(line4,"%.1d%c", getTemp(), '\0');
 
+   commandWrite(0X2);
    n = strlen(line1);
    for(i=0;i<n;i++)
    {
@@ -595,6 +590,7 @@ void printTime(){
 //  }
 //  dataWrite(0b11011111);
 //  dataWrite('F');
+
 
 }
 
@@ -831,15 +827,21 @@ void RTC_C_IRQHandler()
         mins = (RTC_C->TIM0 & 0xFF00) >> 8;             // Record minutes (from top 8 bits of TIM0)
         secs = RTC_C->TIM0 & 0x00FF;                    // Record seconds (from bottom 8 bits of TIM0)
         // For increasing the number of seconds  every PS1 interrupt (to allow time travel)
-        if(secs != 59){                                 // If not  59 seconds, add 1 (otherwise 59+1 = 60 which doesn't work)
+        if(secs < 59){                                 // If not  59 seconds, add 1 (otherwise 59+1 = 60 which doesn't work)
             RTC_C->TIM0 = RTC_C->TIM0 + 1;
         }
         else {
             RTC_C->TIM0 = (((RTC_C->TIM0 & 0xFF00) >> 8)+1)<<8;  // Add a minute if at 59 seconds.  This also resets seconds.
-                                                                 // TODO: What happens if minutes are at 59 minutes as well?
-            time_update = 1;                                     // Send flag to main program to notify a time update occurred.
+            //RTC_C->TIM0 = 0;
+            if(mins == 59 ) {
+                       RTC_C->TIM0 = 0<<8;  // Add a minute if at 59 seconds.  This also resets seconds.
+                       RTC_C->TIM1 = (RTC_C->TIM1 & 0x00FF) + 1;
+                   }
         }
+
         RTC_C->PS1CTL &= ~BIT0;                         // Reset interrupt flag
+        time_update = 1;                                     // Send flag to main program to notify a time update occurred.
+
     }
     if(RTC_C->CTL0 & BIT1)                              // Alarm happened!
     {
@@ -888,4 +890,3 @@ void P1_Init() {
     P1->IE   |=  (BIT1|BIT4);
     NVIC_EnableIRQ(PORT1_IRQn);
 }
-
