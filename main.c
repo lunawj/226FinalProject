@@ -80,8 +80,8 @@ int time_update = 0, alarm_update = 0;
 int display_state = 0;
 int setTimeFlag = 0;
 // Hours, mins, and seconds all positive integers in the range 0-255
-uint8_t hours, mins, secs;
-
+int hours, mins, secs;
+int interruptFlag1 = 0, interruptFlag2 = 0;
 
 ///////////////////////////////
 //alarm
@@ -238,6 +238,7 @@ int main(void)
 //                }
 //            }
 //        }
+    int k = 0;
     while(1){                                       // Main loop of program
        if(time_update){                            // Time Update Occurred (from interrupt handler)
            time_update = 0;                        // Reset Time Update Notification Flag
@@ -257,6 +258,8 @@ int main(void)
                alarm_update = 0;                       // Reset Alarm Update Notification Flag
            }
        }
+       if(alarm == 3 && k%3 == 0)
+           Alarm();
     }
 }
 
@@ -532,9 +535,7 @@ void printTime(){
    char line3[20];
    char line4[20];
    int i, n;
-   if(hours >=25){
-         hours = 1;
-     }
+   //checkSetTime()
    if(hours < 12)
      {
          sprintf(line1, "%d:%02d:%02d AM %c", hours, mins, secs,'\0');
@@ -622,15 +623,13 @@ void printSetTime(int blink, int spot){
          resetLCD();
    }
    int i, n;
-   if(hours >=25){
-       hours = 1;
-   }
+   checkSetTime();
    if(blink%2){
        if(hours < 12)
          {
              sprintf(line2, "%02d:%02d:%02d AM %c", hours, mins, secs,'\0');
          }else if(hours == 24){
-             sprintf(line2, "%02d:%02d:%02d AM %c", 12, mins, secs, '\0');
+             sprintf(line2, "12:%02d:%02d AM %c", 12, mins, secs, '\0');
          }else if(hours > 12){
              sprintf(line2, "%02d:%02d:%02d PM %c", (hours-12), mins, secs, '\0');
          }else if(hours == 12){
@@ -689,7 +688,7 @@ void printSetTime(int blink, int spot){
    {
        dataWrite(line2[i]);
    }
-   delaySeconds(1);
+   delayMilli(500);
 }
 
 /*blink should be incremented in the interrupt handler, it will blink every other time the function is called
@@ -706,9 +705,7 @@ void printSetAlarm(int blink, int spot){
       resetLCD();
    }
    int i, n;
-   if(hours >=25){
-         hours = 1;
-     }
+   checkSetAlarm();
    if(blink%2){
        if(AHOUR < 12)
           {
@@ -762,7 +759,7 @@ void printSetAlarm(int blink, int spot){
    {
        dataWrite(line2[i]);
    }
-   delaySeconds(1);
+   delayMilli(500);
 }
 
 //remember that this was done with a timer. fix later
@@ -866,6 +863,9 @@ void Buttoninit()
     P4 -> DIR &= ~BIT2;
     P4 -> REN |= BIT2;
     P4 -> OUT |= BIT2;
+    P4 -> IE |= BIT2;
+    P4 -> IES |= BIT2;
+    P4 -> IFG &= ~BIT2;
 
     //Snooze, Down button
     P4 -> SEL0 &= ~BIT3;
@@ -873,14 +873,26 @@ void Buttoninit()
     P4 -> DIR &= ~BIT3;
     P4 -> REN |= BIT3;
     P4 -> OUT |= BIT3;
-
+    P4 -> IE |= BIT3;
+    P4 -> IES |= BIT3;
+    P4 -> IFG &= ~BIT3;
 }
 
 void PORT4_IRQHandler(void)//SET TIME/ALARM interrupt
 {
     int butcount = 0, i = 0, spot = 1;
-    while(P4 -> IFG & BIT0 || P4 -> IFG & BIT1){
-        if(P4 -> IFG & BIT0)// Set Time
+    if(P4 -> IFG & BIT0)// Set Time
+    {
+        interruptFlag1 = 1;
+        delayMicro(100);
+        P4 -> IFG &= ~BIT0;
+    }else if(P4 -> IFG & BIT1){
+        interruptFlag2 = 1;
+        delayMicro(100);
+        P4 -> IFG &= ~BIT1;
+    }
+    while(interruptFlag1 || interruptFlag2){
+        if(interruptFlag1 )// Set Time
         {  //Hours flash
             //Hours roll over and AM/PM update
             //Press Set Time button to move onto Minutes update
@@ -891,31 +903,37 @@ void PORT4_IRQHandler(void)//SET TIME/ALARM interrupt
             printSetTime(i, spot);
          if(butcount==0)
          {
-            if(!(P4->IN & BIT2)) //Up button
+            if(P4 -> IFG & BIT2) //Up button
             {
                 hours=hours+1;
+                P4 -> IFG &= ~BIT2;  //clear flag
             }
-            if(!(P4->IN & BIT3))//Down button
+            if(P4 -> IFG & BIT3)//Down button
             {
                 hours=hours-1;
+                P4 -> IFG &= ~BIT3;  //clear flag
             }
-            if(!(P4 ->IN & BIT0)){
+            if(P4 -> IFG & BIT0){
                 butcount=butcount+1;
                 spot = 2;
+                P4 -> IFG &= ~BIT0;
             }
          }
          if(butcount==1)
          {
-             if(!(P4->IN & BIT2)) //Up button
+             if(P4 -> IFG& BIT2) //Up button
              {
                  mins=mins+1;
+                 P4 -> IFG &= ~BIT2;  //clear flag
              }
-             if(!(P4->IN & BIT3))//Down button
+             if(P4 -> IFG & BIT3)//Down button
              {
                  mins=mins-1;
+                 P4 -> IFG &= ~BIT3;  //clear flag
              }
-             if(!(P4 ->IN & BIT0)){
+             if(P4 -> IFG & BIT0){
                  butcount=butcount+1;
+                 P4 -> IFG &= ~BIT0;
              }
          }
          if(butcount==2)
@@ -926,40 +944,45 @@ void PORT4_IRQHandler(void)//SET TIME/ALARM interrupt
              setTimeFlag = 0;
              RTC_C->TIM0 = mins<<8 | secs;//min, secs
              RTC_C->TIM1 = (RTC_C->TIM1 & 0xFF00) | hours;  //day, hours
+             interruptFlag1 = 0;
          }
 
-        }else if(P4 -> IFG & BIT1) //Set Alarm
+        }else if(interruptFlag2) //Set Alarm
         {
             printSetAlarm(i, spot);
          if(butcount==0)
          {
-            if(!(P4->IN & BIT2)) //Up button
+            if(P4 -> IFG & BIT2) //Up button
             {
                 AHOUR=AHOUR+1;
+                P4 -> IFG &= ~BIT2;  //clear flag
             }
-            if(!(P4->IN & BIT3))//Down button
+            if(P4 -> IFG & BIT3)//Down button
             {
                 AHOUR=AHOUR-1;
+                P4 -> IFG &= ~BIT3;  //clear flag
             }
-            if(!(P4 ->IN & BIT1)){
+            if(P4 -> IFG & BIT1){
                 butcount=butcount+1;
                 spot = 2;
+                P4 -> IFG &= ~BIT1;
             }
          }
           if(butcount==1)
              {
-                 if(!(P4->IN & BIT2)) //Up button
+                 if(P4 -> IFG & BIT2) //Up button
                  {
                      AMIN=AMIN+1;
-                     //P4 -> IFG &= ~BIT1;//clear flag
+                     P4 -> IFG &= ~BIT2;  //clear flag
                  }
-                 if(!(P4->IN & BIT3))//Down button
+                 if(P4 -> IFG & BIT3)//Down button
                  {
                      AMIN=AMIN-1;
-                     //P4 -> IFG &= ~BIT1;//clear flag
+                     P4 -> IFG &= ~BIT3;    //clear flag
                  }
-                 if(!(P4 ->IN & BIT1)){
+                 if(P4 -> IFG & BIT1){
                      butcount=butcount+1;
+                     P4 -> IFG &= ~BIT1;
                  }
              }
              if(butcount==2)
@@ -972,10 +995,35 @@ void PORT4_IRQHandler(void)//SET TIME/ALARM interrupt
                  }else{
                      RTC_C->AMINHR = AHOUR<<8 | AMIN;
                  }
+                 interruptFlag2 = 0;
 
              }
         }
         i++;
+    }
+    if(P4 -> IFG & BIT2){
+        P4 -> IFG &= ~BIT2;
+        TIMER_A2->CCR[2] = 0;
+        if(alarm == 1 || alarm == 3){
+            alarm = 0;
+            RTC_C->AMINHR = AHOUR<<8 | AMIN;
+        }else if(alarm == 0){
+            alarm = 1;
+            RTC_C->AMINHR = AHOUR<<8 | AMIN | BIT(15) | BIT(7);  //bit 15 and 7 are Alarm Enable bits
+        }
+    }
+    if(P4 -> IFG & BIT3){
+        P4 -> IFG &= ~BIT3;
+        if(alarm == 3){
+            alarm = 2;
+            AMIN +=10;
+            if(AMIN >= 60){
+                AHOUR+=1;
+                AMIN -= 60;
+            }
+            RTC_C->AMINHR = AHOUR<<8 | AMIN | BIT(15) | BIT(7);  //bit 15 and 7 are Alarm Enable bits
+            TIMER_A2->CCR[2] = 0;
+        }
     }
     // return;
 }
@@ -1048,10 +1096,20 @@ void RTC_C_IRQHandler()
                hours = (RTC_C->TIM1 & 0xFF00) | 1;
             }
 
-                if(hours == AHOUR && mins == AMIN)
+                if((hours == AHOUR && mins == AMIN) || alarm == 3)
                 {
                     //sound alarm function goes here
                     //printf("SOUND ALARM\n");    //TODO MUST REMOVE LATER, ONLY FOR TESTING
+                    if(alarm != 0){
+                        alarm = 3;
+                    }
+                    //Alarm();
+                    alarm_update = 1;                               // Send flag to main program to notify a time update occurred.
+                    RTC_C->CTL0 = (0xA500) | BIT5;                  // Resetting the alarm flag.  Need to also write the secret code
+                                                                    // and rewrite the entire register.
+                                                                    // TODO: It seems like there is a better way to preserve what was already
+                                                                    // there in case the setup of this register needs to change and this line
+                                                                    // is forgotten to be updated.
                 }else if(LED==0 && alarm){
                     if(AHOUR == (hours + 1) && AMIN < 5 && mins >= 55){
                         //edge cases
@@ -1108,7 +1166,7 @@ void RTC_C_IRQHandler()
         }
         if(RTC_C->CTL0 & BIT1)                              // Alarm happened!
         {
-            Alarm();
+           // Alarm();
             alarm_update = 1;                               // Send flag to main program to notify a time update occurred.
             RTC_C->CTL0 = (0xA500) | BIT5;                  // Resetting the alarm flag.  Need to also write the secret code
                                                             // and rewrite the entire register.
@@ -1167,9 +1225,39 @@ void Alarm()
 {
 
     //sound alarm
-    TIMER_A2->CCR[2]    =    5700;
-    delaySeconds(1);
-    TIMER_A2->CCR[2]    =    0;
-    delaySeconds(1);
+    if(TIMER_A2->CCR[2] == 5700){
+        TIMER_A2->CCR[2]    =    0;
+    }else{
+        TIMER_A2->CCR[2]    =    5700;
+    }
 }
 
+void checkSetTime(){
+    if(hours > 24){
+        hours = 1;
+    }
+    if(hours < 1){
+       hours = 24;
+    }
+    if(mins >=60){
+       mins = 0;
+    }
+    if(mins < 0){
+       mins = 59;
+    }
+}
+
+void checkSetAlarm(){
+    if(AHOUR > 24){
+          AHOUR = 1;
+      }
+      if(AHOUR < 1){
+         AHOUR = 24;
+      }
+      if(AMIN >=60){
+         AMIN = 0;
+      }
+      if(AMIN < 0){
+         AMIN = 59;
+      }
+}
