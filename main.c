@@ -876,6 +876,15 @@ void Buttoninit()
     P4 -> IE |= BIT3;
     P4 -> IES |= BIT3;
     P4 -> IFG &= ~BIT3;
+
+    //Side buttons on MSP432 to speed up the time
+    P1->SEL0 &= ~(BIT1|BIT4);
+    P1->SEL1 &= ~(BIT1|BIT4);
+    P1->DIR  &= ~(BIT1|BIT4);
+    P1->REN  |=  (BIT1|BIT4);
+    P1->OUT  |=  (BIT1|BIT4);
+    P1->IE   |=  (BIT1|BIT4);
+    NVIC_EnableIRQ(PORT1_IRQn);
 }
 
 void PORT4_IRQHandler(void)//SET TIME/ALARM interrupt
@@ -1260,4 +1269,24 @@ void checkSetAlarm(){
       if(AMIN < 0){
          AMIN = 59;
       }
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------
+ *
+ * void PORT1_IRQHandler(void)
+ *
+ * Interrupt Handler for P1.  The name of this function is set in startup_msp432p401r_ccs.c
+ *
+ * This handler checks for interrupts on P1.1 and P1.4 and sets a flag to change the speed of the clock.
+ *
+-------------------------------------------------------------------------------------------------------------------------------*/
+void PORT1_IRQHandler(void)
+{
+    if(P1->IFG & BIT1) {                                //If P1.1 had an interrupt Speed up clock 1 min = 1 sec
+        RTC_C->PS1CTL = 0b00010;  //1/64 second interrupt
+    }
+    if(P1->IFG & BIT4) {                                //If P1.4 had an interrupt return clock to counting by 1 second
+        RTC_C->PS1CTL = 0b11010; //1 second interrupt
+    }
+    P1->IFG = 0;                                        //Clear all flags
 }
