@@ -169,9 +169,11 @@ void serialCommand(){
         if(string[0] != '\0'){ // if string is not empty, check the inputted data.
             if(!(strcmp(string,"READALARM")))
             {
+                valid = 1;
                 readAlarm();
             }else if(!(strcmp(string,"READTIME")))
             {
+                valid = 1;
                 readTime();
             }else{
 
@@ -233,9 +235,11 @@ void serialCommand(){
                             writeOutput("Valid\n");
                             setAlarm(hour, minute);
                             valid = 1;
-                            flag = 0;
                         }
                     }
+                }
+                if(valid){
+                    flag = 0;
                 }
                 else{
                     writeOutput("Invalid\n");
