@@ -42,7 +42,7 @@ RED   P7.5
 GREEN P7.4
 Speaker
 P5.7
-*/
+ */
 //////////////////////////////////
 /// Making a buffer of 100 characters for serial to store to incoming serial data
 #define BUFFER_SIZE 100
@@ -82,7 +82,8 @@ int setTimeFlag = 0;
 // Hours, mins, and seconds all positive integers in the range 0-255
 int hours, mins, secs;
 int interruptFlag1 = 0, interruptFlag2 = 0;
-
+int wakeUp = 0;
+int snoozeCounter = 0;
 ///////////////////////////////
 //alarm
 int AHOUR = 0, AMIN = 0, alarm = 0;
@@ -98,37 +99,12 @@ void TimerA2config(void); // initializes timer A2
 void SpeakerConfig(void); // initializes the speaker
 void ADC14init(void);
 
-void initT32();  //initializes TIMER32_1
 
 //INTERRUPTS
 
-void initInterruptPins();  //enables interrupts for pins
+
 void ADC14_IRQHandler(void);
 
-//Global variables
-int blueBright = 100;  //blue LED's brightness
-int redBright = 100;   //red LED's brightness
-int greenBright = 100; //green LED's brightness
-
-
-/*
- * Initializes everything
- */
-/*
-void main(void)
-{
-    WDT_A->CTL = WDT_A_CTL_PW | WDT_A_CTL_HOLD;     // stop watchdog timer
-//    initInterruptPins();
-//    initializePWM();
-//    initT32();
-//    TimerA2config();
-//    SpeakerConfig();
-//    NVIC_EnableIRQ(PORT2_IRQn);
-//    NVIC_EnableIRQ(PORT3_IRQn);
-//    __enable_interrupt();
-  // menu(); //main menu
-}
-*/
 int main(void)
 {
     initSysTick();
@@ -141,7 +117,6 @@ int main(void)
     delayMicro(100);
     LCDInit();
     delayMicro(100);
-    char string[BUFFER_SIZE]; // Creates local char array to store incoming serial commands
     WDT_A->CTL = WDT_A_CTL_PW |  WDT_A_CTL_HOLD; // Stop watchdog timer
 
     setupPorts();
@@ -149,120 +124,127 @@ int main(void)
     initializePWM();
     NVIC_EnableIRQ(PORT4_IRQn);//SET time and Set alarm interrupt
     __enable_interrupt(); //enable button interrupts
-    INPUT_BUFFER[0]= '\0';  // Sets the global buffer to initial condition of empty
+
 
     __enable_irq();  // Enable all interrupts (serial)
 
-    int valid = 0;
-    int hour, minute, second,i;
-    char function[20];
-    //remove while loop after testing
-//    while(1) {
-//        hour = 0;
-//        minute = 0;
-//        second = 0;
-//
-//        readInput(string); // Read the input up to \n, store in string.  This function doesn't return until \n is received
-//        if(string[0] != '\0'){ // if string is not empty, check the inputted data.
-//            if(!(strcmp(string,"READALARM")))
-//            {
-//                readAlarm();
-//            }else if(!(strcmp(string,"READTIME")))
-//            {
-//                readTime();
-//            }else{
-//
-//
-//                for(i=0; string[i] != ' '; i++)
-//                {
-//                    function[i] = string[i];
-//                }
-//                function[i] = '\0';
-//                if(!(strcmp(function,"SETTIME")))
-//                {
-//
-//                    //convert string to time
-//                    i++;
-//                    hour = string[i] - '0';
-//                    hour*=10;
-//                    i++;
-//                    hour += string[i] - '0';
-//                    i+=2;
-//
-//                    minute = string[i] - '0';
-//                    minute*=10;
-//                    i++;
-//                    minute += string[i] - '0';
-//                    i+=2;
-//
-//                    second = string[i] - '0';
-//                    second*=10;
-//                    i++;
-//                    second += string[i] - '0';
-//
-//                    if(hour<=24 && hour>=0){
-//                        if(minute <= 60 && minute >=0)
-//                            if(second <= 60 && second >=0){
-//                                writeOutput("Valid\n");
-//                                setTime(hour, minute, second);
-//                                valid = 1;
-//                            }
-//                    }
-//                }else if(!(strcmp(function,"SETALARM")))
-//                {
-//                    //convert string to time
-//                   i++;
-//                   hour = string[i] - '0';
-//                   hour*=10;
-//                   i++;
-//                   hour += string[i] - '0';
-//                   i+=2;
-//
-//                   minute = string[i] - '0';
-//                   minute*=10;
-//                   i++;
-//                   minute += string[i] - '0';
-//                   i+=2;
-//
-//                   if(hour<=24 && hour>=0){
-//                       if(minute <= 60 && minute >=0)
-//                       {
-//                           writeOutput("Valid\n");
-//                           setAlarm(hour, minute);
-//                           valid = 1;
-//                       }
-//                   }
-//                }
-//                else{
-//                    writeOutput("Invalid\n");
-//                }
-//            }
-//        }
     int k = 0;
     while(1){                                       // Main loop of program
-       if(time_update){                            // Time Update Occurred (from interrupt handler)
-           time_update = 0;                        // Reset Time Update Notification Flag
-           AHOUR= (RTC_C->AMINHR & 0x7F00)>>8; //Sets the ALARM hour
-           AMIN = (RTC_C->AMINHR & 0x007F); //Sets the ALARM minute
-           //Alarm();
-           delayMicro(100);
-           printTime();
-//                   if(display_state)
-//                       printf("Alarm = %02d:%02d\n",(RTC_C->AMINHR & 0x7F00)>>8,RTC_C->AMINHR & 0x007F); // Print time with mandatory 2 digits  each for hours, mins, seconds
-//                   else
-//                       printTime();
-//                       //printf("Time = %02d:%02d:%02d\n",hours,mins,secs); // Print time with mandatory 2 digits  each for hours, mins, seconds
-//                  }
-           if(alarm_update){                           // Alarm Update Occurred (from interrupt handler)
-               printf("ALARM\n");                      // Display Alarm status to user
-               alarm_update = 0;                       // Reset Alarm Update Notification Flag
-           }
-       }
-       if(alarm == 3 && k%3 == 0)
-           Alarm();
+        if(time_update){                            // Time Update Occurred (from interrupt handler)
+            time_update = 0;                        // Reset Time Update Notification Flag
+            AHOUR= (RTC_C->AMINHR & 0x7F00)>>8; //Sets the ALARM hour
+            AMIN = (RTC_C->AMINHR & 0x007F); //Sets the ALARM minute
+            //Alarm();
+            delayMicro(100);
+            printTime();
+            //                   if(display_state)
+            //                       printf("Alarm = %02d:%02d\n",(RTC_C->AMINHR & 0x7F00)>>8,RTC_C->AMINHR & 0x007F); // Print time with mandatory 2 digits  each for hours, mins, seconds
+            //                   else
+            //                       printTime();
+            //                       //printf("Time = %02d:%02d:%02d\n",hours,mins,secs); // Print time with mandatory 2 digits  each for hours, mins, seconds
+            //                  }
+            if(alarm_update){                           // Alarm Update Occurred (from interrupt handler)
+                //printf("ALARM\n");                      // Display Alarm status to user
+                alarm_update = 0;                       // Reset Alarm Update Notification Flag
+            }
+        }
+        if(alarm == 3 && k%3 == 0)
+            Alarm();
     }
 }
 
+void serialCommand(){
+    char string[BUFFER_SIZE]; // Creates local char array to store incoming serial commands
+    INPUT_BUFFER[0]= '\0';  // Sets the global buffer to initial condition of empty
+    int valid = 0;
+    int hour, minute, second,i;
+    char function[20];
+    int flag = 1;
+    while(flag) {
+        hour = 0;
+        minute = 0;
+        second = 0;
+
+        readInput(string); // Read the input up to \n, store in string.  This function doesn't return until \n is received
+        if(string[0] != '\0'){ // if string is not empty, check the inputted data.
+            if(!(strcmp(string,"READALARM")))
+            {
+                readAlarm();
+            }else if(!(strcmp(string,"READTIME")))
+            {
+                readTime();
+            }else{
+
+
+                for(i=0; string[i] != ' '; i++)
+                {
+                    function[i] = string[i];
+                }
+                function[i] = '\0';
+                if(!(strcmp(function,"SETTIME")))
+                {
+
+                    //convert string to time
+                    i++;
+                    hour = string[i] - '0';
+                    hour*=10;
+                    i++;
+                    hour += string[i] - '0';
+                    i+=2;
+
+                    minute = string[i] - '0';
+                    minute*=10;
+                    i++;
+                    minute += string[i] - '0';
+                    i+=2;
+
+                    second = string[i] - '0';
+                    second*=10;
+                    i++;
+                    second += string[i] - '0';
+
+                    if(hour<=24 && hour>=0){
+                        if(minute <= 60 && minute >=0)
+                            if(second <= 60 && second >=0){
+                                writeOutput("Valid\n");
+                                setTime(hour, minute, second);
+                                valid = 1;
+                            }
+                    }
+                }else if(!(strcmp(function,"SETALARM")))
+                {
+                    //convert string to time
+                    i++;
+                    hour = string[i] - '0';
+                    hour*=10;
+                    i++;
+                    hour += string[i] - '0';
+                    i+=2;
+
+                    minute = string[i] - '0';
+                    minute*=10;
+                    i++;
+                    minute += string[i] - '0';
+                    i+=2;
+
+                    if(hour<=24 && hour>=0){
+                        if(minute <= 60 && minute >=0)
+                        {
+                            writeOutput("Valid\n");
+                            setAlarm(hour, minute);
+                            valid = 1;
+                            flag = 0;
+                        }
+                    }
+                }
+                else{
+                    writeOutput("Invalid\n");
+                    flag = 0;
+                }
+            }
+        }
+    }
+}
 
 /*----------------------------------------------------------------
  * void setBrightness(unsigned int dutyCycle)
@@ -278,8 +260,8 @@ void setBrightness(unsigned int dutyCycle)
     {
         dutyCycle = 100;
     }
-    TIMER_A1->CCR[2] = (int)((dutyCycle /100.00) * 60000);
-    TIMER_A1->CCR[1] = (int)((dutyCycle /100.00) * 60000);
+    TIMER_A0->CCR[1] = (int)((dutyCycle /100.00) * 50000);
+    TIMER_A0->CCR[2] = (int)((dutyCycle /100.00) * 50000);
 }
 
 
@@ -296,20 +278,20 @@ void initializePWM()
     P2->SEL0 |= BIT4|BIT5;
     P2->SEL1 &= ~BIT4|BIT5;  // Setting SEL0 = 1 and SEL1 = 0 will activate the secondary function of these pins.
     P2->DIR |=BIT4|BIT5;    // Set pins as outputs.  Also required for PWM output.
-    P2->OUT &= ~BIT4|BIT5;   // output.
+    P2->OUT &= ~(BIT4|BIT5);   // output.
 
-//    P7->SEL0 |= (BIT4|BIT5|BIT6|BIT7);
-//    P7->SEL1 &= ~(BIT4|BIT5|BIT6|BIT7);;  // Setting SEL0 = 1 and SEL1 = 0 will activate the secondary function of these pins.
-//    P7->DIR |=(BIT4|BIT5|BIT6|BIT7);;    // Set pins as outputs.  Also required for PWM output.
-//    P7->OUT &= ~(BIT4|BIT5|BIT6|BIT7);;   // output.
+    //    P7->SEL0 |= (BIT4|BIT5|BIT6|BIT7);
+    //    P7->SEL1 &= ~(BIT4|BIT5|BIT6|BIT7);;  // Setting SEL0 = 1 and SEL1 = 0 will activate the secondary function of these pins.
+    //    P7->DIR |=(BIT4|BIT5|BIT6|BIT7);;    // Set pins as outputs.  Also required for PWM output.
+    //    P7->OUT &= ~(BIT4|BIT5|BIT6|BIT7);;   // output.
     //P7 is A1
     //P5 is A2
 
     TIMER_A0->CCR[0] = 50000;  //Running at 60 Hz
     TIMER_A0->CCTL[1] = 0b0000000011100000;  //reset / set
     TIMER_A0->CCTL[2] = 0b0000000011100000;  //reset / set
-    TIMER_A0->CCR[1] = 50000;// Timer LED
-    TIMER_A0->CCR[2] = 50000;// Timer LED
+    TIMER_A0->CCR[1] = 0;// Timer LED
+    TIMER_A0->CCR[2] = 0;// Timer LED
     TIMER_A0->CTL = 0b0000001000010100;
 }
 
@@ -341,14 +323,14 @@ void TimerA2config(void)
     TIMER_A2->CCTL[2]   =    0b11100000;                // Set to Reset/set Compare Mode (BITs 7-5 set to 1)
     TIMER_A2->CCR[2]    =    (0);                         // Will reset (set to 0) immediately, so it will always be off by default
     TIMER_A2->CTL       =    0b1000010100;              // Bits 9-8 = 10 to Set to SMCLK
-                                                        // Bits 5-4 = 01 to Set to Count Up Mode
-                                                        // Bit 2 to 1 to Clear and Load Settings.
+    // Bits 5-4 = 01 to Set to Count Up Mode
+    // Bit 2 to 1 to Clear and Load Settings.
 }
 
 /*----------------------------------------------------------------
  * void SpeakerConfig(void)
  *
- * Description: Set Speaker pin to PWM controlled by Timer_A0
+ * Description: Set Speaker pin to PWM controlled by Timer_A2
  * Inputs: None
  * Outputs: None
 ----------------------------------------------------------------*/
@@ -530,81 +512,84 @@ void setTime(int hour, int minute, int second){
 
 //
 void printTime(){
-   char line1[20];
-   char line2[20];
-   char line3[20];
-   char line4[20];
-   int i, n;
-   //checkSetTime()
-   if(hours < 12)
-     {
-         sprintf(line1, "%d:%02d:%02d AM %c", hours, mins, secs,'\0');
-     }else if(hours == 24){
-         sprintf(line1, "%d:%02d:%02d AM %c", 12, mins, secs, '\0');
-     }else if(hours > 12){
-         sprintf(line1, "%d:%02d:%02d PM %c", (hours-12), mins, secs, '\0');
-     }else if(hours == 12){
-         sprintf(line1, "%d:%02d:%02d PM %c", 12, mins, secs, '\0');
-     }
+    char line1[20];
+    char line2[20];
+    char line3[20];
+    char line4[20];
+    int i, n;
+    //checkSetTime()
+    if(hours < 12)
+    {
+        sprintf(line1, "%d:%02d:%02d AM %c", hours, mins, secs,'\0');
+    }else if(hours == 24){
+        sprintf(line1, "%d:%02d:%02d AM %c", 12, mins, secs, '\0');
+    }else if(hours > 12){
+        sprintf(line1, "%d:%02d:%02d PM %c", (hours-12), mins, secs, '\0');
+    }else if(hours == 12){
+        sprintf(line1, "%d:%02d:%02d PM %c", 12, mins, secs, '\0');
+    }
 
-   if(alarm == 2)
-  {
-      sprintf(line2,"ALARM SNOOZE %c", '\0');
-  }else if(alarm == 1){
-      sprintf(line2,"ALARM ON     %c", '\0');
-  }else{
-      sprintf(line2,"ALARM OFF    %c", '\0');
-  }
+    if(alarm == 3)
+    {
+        sprintf(line2,"ALARM RINGING %c", '\0');
+    }else if(alarm == 2)
+    {
+        sprintf(line2,"ALARM SNOOZE %c", '\0');
+    }else if(alarm == 1){
+        sprintf(line2,"ALARM ON     %c", '\0');
+    }else{
+        sprintf(line2,"ALARM OFF    %c", '\0');
+    }
 
-   if(AHOUR < 12)
-   {
-       sprintf(line3, "%d:%02d AM %c", AHOUR, AMIN, '\0');
-   }else if(AHOUR == 24){
-       sprintf(line3, "%d:%02d AM %c", 12, AMIN, '\0');
-   }else if(AHOUR > 12){
-       sprintf(line3, "%d:%02d PM %c", AHOUR-12, AMIN, '\0');
-   }else if(hours == 12){
-       sprintf(line1, "%d:%02d PM %c", 12, AMIN, '\0');
-   }
+    if(AHOUR < 12)
+    {
+        sprintf(line3, "%d:%02d AM %c", AHOUR, AMIN, '\0');
+    }else if(AHOUR == 24){
+        sprintf(line3, "%d:%02d AM %c", 12, AMIN, '\0');
+    }else if(AHOUR > 12){
+        sprintf(line3, "%d:%02d PM %c", AHOUR-12, AMIN, '\0');
+    }else if(hours == 12){
+        sprintf(line1, "%d:%02d PM %c", 12, AMIN, '\0');
+    }
 
-   ////sprintf(line4,"%02.1d%c", getTemp(), '\0');
-   //sprintf(line4,"%.1d%c", getTemp(), '\0');
+    ////sprintf(line4,"%02.1d%c", getTemp(), '\0');
+    //sprintf(line4,"%.1d%c", getTemp(), '\0');
 
-   commandWrite(0X2);
-   n = strlen(line1);
-   for(i=0;i<n;i++)
-   {
-       dataWrite(line1[i]);
-   }
+    commandWrite(0X2);
+    n = strlen(line1);
+    for(i=0;i<n;i++)
+    {
+        dataWrite(line1[i]);
+    }
 
-   commandWrite(0xC0);
-   delayMicro(100);
-   commandWrite(0x0F);
-   n = strlen(line2);
-   for(i=0;i<n;i++)
-   {
-       dataWrite(line2[i]);
-   }
+    commandWrite(0xC0);
+    delayMicro(100);
+    commandWrite(0x0F);
+    n = strlen(line2);
+    for(i=0;i<n;i++)
+    {
+        dataWrite(line2[i]);
+    }
 
-   commandWrite(0x90);
-   delayMicro(100);
-   commandWrite(0x0F);
-   n = strlen(line3);
-   for(i=0;i<n;i++)
-   {
-       dataWrite(line3[i]);
-   }
+    commandWrite(0x90);
+    delayMicro(100);
+    commandWrite(0x0F);
+    n = strlen(line3);
+    for(i=0;i<n;i++)
+    {
+        dataWrite(line3[i]);
+    }
 
-//  commandWrite(0xC0+0x10);
-//  delayMicro(100);
-//  commandWrite(0x0F);
-//  n = strlen(line4);
-//  for(i=0;i<n;i++)
-//  {
-//      dataWrite(line4[i]);
-//  }
-//  dataWrite(0b11011111);
-//  dataWrite('F');
+    //  commandWrite(0xC0+0x10);
+    //  delayMicro(100);
+    //  commandWrite(0x0F);
+    //  n = strlen(line4);
+    //  for(i=0;i<n;i++)
+    //  {
+    //      dataWrite(line4[i]);
+    //  }
+    //  dataWrite(0b11011111);
+    //  dataWrite('F');
 
 
 }
@@ -616,28 +601,28 @@ void printTime(){
  * 3 is for seconds
  */
 void printSetTime(int blink, int spot){
-   char line1[20] = "SET TIME";
-   char line2[20];
-   setTimeFlag = 1;
-   if(blink == 0){
-         resetLCD();
-   }
-   int i, n;
-   checkSetTime();
-   if(blink%2){
-       if(hours < 12)
-         {
-             sprintf(line2, "%02d:%02d:%02d AM %c", hours, mins, secs,'\0');
-         }else if(hours == 24){
-             sprintf(line2, "12:%02d:%02d AM %c", 12, mins, secs, '\0');
-         }else if(hours > 12){
-             sprintf(line2, "%02d:%02d:%02d PM %c", (hours-12), mins, secs, '\0');
-         }else if(hours == 12){
-             sprintf(line2, "%02d:%02d:%02d PM %c", 12, mins, secs, '\0');
-         }
-   }else{
-       if(spot == 1){
-           if(hours < 12)
+    char line1[20] = "SET TIME";
+    char line2[20];
+    setTimeFlag = 1;
+    if(blink == 0){
+        resetLCD();
+    }
+    int i, n;
+    checkSetTime();
+    if(blink%2){
+        if(hours < 12)
+        {
+            sprintf(line2, "%02d:%02d:%02d AM %c", hours, mins, secs,'\0');
+        }else if(hours == 24){
+            sprintf(line2, "12:%02d:%02d AM %c", 12, mins, secs, '\0');
+        }else if(hours > 12){
+            sprintf(line2, "%02d:%02d:%02d PM %c", (hours-12), mins, secs, '\0');
+        }else if(hours == 12){
+            sprintf(line2, "%02d:%02d:%02d PM %c", 12, mins, secs, '\0');
+        }
+    }else{
+        if(spot == 1){
+            if(hours < 12)
             {
                 sprintf(line2, "  :%02d:%02d AM %c", mins, secs,'\0');
             }else if(hours == 24){
@@ -647,8 +632,8 @@ void printSetTime(int blink, int spot){
             }else if(hours == 12){
                 sprintf(line2, "  :%02d:%02d PM %c", mins, secs, '\0');
             }
-       }else if (spot == 2){
-           if(hours < 12)
+        }else if (spot == 2){
+            if(hours < 12)
             {
                 sprintf(line2, "%02d:  :%02d AM %c", hours, secs,'\0');
             }else if(hours == 24){
@@ -658,8 +643,8 @@ void printSetTime(int blink, int spot){
             }else if(hours == 12){
                 sprintf(line2, "%02d:  :%02d PM %c", 12, secs, '\0');
             }
-       }else if (spot == 3){
-           if(hours < 12)
+        }else if (spot == 3){
+            if(hours < 12)
             {
                 sprintf(line2, "%02d:%02d:   AM %c", hours, mins, '\0');
             }else if(hours == 24){
@@ -669,26 +654,26 @@ void printSetTime(int blink, int spot){
             }else if(hours == 12){
                 sprintf(line2, "%02d:%02d:   PM %c", 12, mins, '\0');
             }
-       }
-   }
+        }
+    }
 
 
-   commandWrite(0X2);
-   n = strlen(line1);
-   for(i=0;i<n;i++)
-   {
-       dataWrite(line1[i]);
-   }
+    commandWrite(0X2);
+    n = strlen(line1);
+    for(i=0;i<n;i++)
+    {
+        dataWrite(line1[i]);
+    }
 
-   commandWrite(0xC0);
-   delayMicro(100);
-   commandWrite(0x0F);
-   n = strlen(line2);
-   for(i=0;i<n;i++)
-   {
-       dataWrite(line2[i]);
-   }
-   delayMilli(500);
+    commandWrite(0xC0);
+    delayMicro(100);
+    commandWrite(0x0F);
+    n = strlen(line2);
+    for(i=0;i<n;i++)
+    {
+        dataWrite(line2[i]);
+    }
+    delayMilli(500);
 }
 
 /*blink should be incremented in the interrupt handler, it will blink every other time the function is called
@@ -698,28 +683,28 @@ void printSetTime(int blink, int spot){
  * Always set 0 to blink for the first time
  */
 void printSetAlarm(int blink, int spot){
-   char line1[20] = "SET ALARM";
-   char line2[20];
+    char line1[20] = "SET ALARM";
+    char line2[20];
 
-   if(blink == 0){
-      resetLCD();
-   }
-   int i, n;
-   checkSetAlarm();
-   if(blink%2){
-       if(AHOUR < 12)
-          {
-              sprintf(line2, "%02d:%02d AM %c", AHOUR, AMIN, '\0');
-          }else if(AHOUR == 24){
-              sprintf(line2, "%02d:%02d AM %c", 12, AMIN, '\0');
-          }else if(AHOUR > 12){
-              sprintf(line2, "%02d:%02d PM %c", AHOUR-12, AMIN, '\0');
-          }else if(hours == 12){
-              sprintf(line2, "%02d:%02d PM %c", 12, AMIN, '\0');
-          }
-   }else{
-       if(spot == 1){
-           if(AHOUR < 12)
+    if(blink == 0){
+        resetLCD();
+    }
+    int i, n;
+    checkSetAlarm();
+    if(blink%2){
+        if(AHOUR < 12)
+        {
+            sprintf(line2, "%02d:%02d AM %c", AHOUR, AMIN, '\0');
+        }else if(AHOUR == 24){
+            sprintf(line2, "%02d:%02d AM %c", 12, AMIN, '\0');
+        }else if(AHOUR > 12){
+            sprintf(line2, "%02d:%02d PM %c", AHOUR-12, AMIN, '\0');
+        }else if(hours == 12){
+            sprintf(line2, "%02d:%02d PM %c", 12, AMIN, '\0');
+        }
+    }else{
+        if(spot == 1){
+            if(AHOUR < 12)
             {
                 sprintf(line2, "  :%02d AM %c", AMIN,'\0');
             }else if(AHOUR == 24){
@@ -729,8 +714,8 @@ void printSetAlarm(int blink, int spot){
             }else if(AHOUR == 12){
                 sprintf(line2, "  :%02d PM %c", AMIN, '\0');
             }
-       }else if (spot == 2){
-           if(AHOUR < 12)
+        }else if (spot == 2){
+            if(AHOUR < 12)
             {
                 sprintf(line2, "%02d:   AM %c", AHOUR,'\0');
             }else if(AHOUR == 24){
@@ -740,43 +725,43 @@ void printSetAlarm(int blink, int spot){
             }else if(AHOUR == 12){
                 sprintf(line2, "%02d:   PM %c", 12, '\0');
             }
-       }
-   }
+        }
+    }
 
 
-   commandWrite(0X2);
-   n = strlen(line1);
-   for(i=0;i<n;i++)
-   {
-       dataWrite(line1[i]);
-   }
+    commandWrite(0X2);
+    n = strlen(line1);
+    for(i=0;i<n;i++)
+    {
+        dataWrite(line1[i]);
+    }
 
-   commandWrite(0xC0);
-   delayMicro(100);
-   commandWrite(0x0F);
-   n = strlen(line2);
-   for(i=0;i<n;i++)
-   {
-       dataWrite(line2[i]);
-   }
-   delayMilli(500);
+    commandWrite(0xC0);
+    delayMicro(100);
+    commandWrite(0x0F);
+    n = strlen(line2);
+    for(i=0;i<n;i++)
+    {
+        dataWrite(line2[i]);
+    }
+    delayMilli(500);
 }
 
 //remember that this was done with a timer. fix later
 int getTemp(){
     float result_temp;
-     uint16_t result;
+    uint16_t result;
 
-//    while(1)
-//    {
-        ADC14->CTL0 |=0b1;
-        result = temp;
-        result_temp = ((result*3.3)/16384);
-        result_temp = (result_temp * 1000 - 500)/10;
-        result_temp = 32 + (result_temp * 9.0/5.0);
-        return result_temp;
+    //    while(1)
+    //    {
+    ADC14->CTL0 |=0b1;
+    result = temp;
+    result_temp = ((result*3.3)/16384);
+    result_temp = (result_temp * 1000 - 500)/10;
+    result_temp = 32 + (result_temp * 9.0/5.0);
+    return result_temp;
 
-//    }
+    //    }
 
 }
 
@@ -795,8 +780,8 @@ int getTemp(){
 void ADC14init(void)
 {
     //For Analog Input 8
-//    P4->SEL0            |=   BIT5;                      // Select ADC Operation
-//    P4->SEL1            |=   BIT5;                      // SEL = 11 sets to ADC operation
+    //    P4->SEL0            |=   BIT5;                      // Select ADC Operation
+    //    P4->SEL1            |=   BIT5;                      // SEL = 11 sets to ADC operation
     P5->SEL0            |=   BIT5;                      // Select ADC Operation
     P5->SEL1            |=   BIT5;                      // SEL = 11 sets to ADC operation
 
@@ -813,11 +798,11 @@ void ADC14init(void)
     ADC14->CTL0         =    0b10000100001000100000001100010000;
 
     ADC14->CTL1         =    BIT5;         // Bits 5 = 11 to enable 14 bit conversion
-                                                     // Bit 23 turns on Temperature Sensor
+    // Bit 23 turns on Temperature Sensor
     ADC14->MCTL[0]      =    0|BIT7;                         // A0 on P4.5, BIT7 says stop converting after this ADC
     //ADC14->MCTL[1]      =    8;                         // A8 on P4.5
     //ADC14->MCTL[2]      =    22 | BIT7;                 // Internal Temperature Sensor on A22 WHICH IS P6.3
-                                                        // BIT7 says to stop converting after this ADC.
+    // BIT7 says to stop converting after this ADC.
     ADC14->IER0         |=   BIT0;            // Interrupt on for all three conversions
 
     ADC14->CTL0         |=   0b10;                      // Enable Conversion
@@ -828,7 +813,7 @@ void ADC14_IRQHandler(void)
 {
     if(ADC14->IFGR0 & BIT0)
     {
-       temp = ADC14->MEM[0];
+        temp = ADC14->MEM[0];
         ADC14->CLRIFGR0     &=  ~BIT0;                  // Clear MEM0 interrupt flag
     }
 
@@ -877,6 +862,17 @@ void Buttoninit()
     P4 -> IES |= BIT3;
     P4 -> IFG &= ~BIT3;
 
+
+    //Interrut button for the serial
+    P4 -> SEL0 &= ~BIT4;
+    P4 -> SEL1 &= ~BIT4;
+    P4 -> DIR &= ~BIT4;
+    P4 -> REN |= BIT4;
+    P4 -> OUT |= BIT4;
+    P4 -> IE |= BIT4;
+    P4 -> IES |= BIT4;
+    P4 -> IFG &= ~BIT4;
+
     //Side buttons on MSP432 to speed up the time
     P1->SEL0 &= ~(BIT1|BIT4);
     P1->SEL1 &= ~(BIT1|BIT4);
@@ -910,129 +906,154 @@ void PORT4_IRQHandler(void)//SET TIME/ALARM interrupt
             //Press Set Time button to finish setting the time
             setTimeFlag = 1;
             printSetTime(i, spot);
-         if(butcount==0)
-         {
-            if(P4 -> IFG & BIT2) //Up button
+            if(butcount==0)
             {
-                hours=hours+1;
-                P4 -> IFG &= ~BIT2;  //clear flag
+                if(P4 -> IFG & BIT2) //Up button
+                {
+                    hours=hours+1;
+                    P4 -> IFG &= ~BIT2;  //clear flag
+                }
+                if(P4 -> IFG & BIT3)//Down button
+                {
+                    hours=hours-1;
+                    P4 -> IFG &= ~BIT3;  //clear flag
+                }
+                if(P4 -> IFG & BIT0){
+                    butcount=butcount+1;
+                    spot = 2;
+                    P4 -> IFG &= ~BIT0;
+                }
             }
-            if(P4 -> IFG & BIT3)//Down button
+            if(butcount==1)
             {
-                hours=hours-1;
-                P4 -> IFG &= ~BIT3;  //clear flag
+                if(P4 -> IFG& BIT2) //Up button
+                {
+                    mins=mins+1;
+                    P4 -> IFG &= ~BIT2;  //clear flag
+                }
+                if(P4 -> IFG & BIT3)//Down button
+                {
+                    mins=mins-1;
+                    P4 -> IFG &= ~BIT3;  //clear flag
+                }
+                if(P4 -> IFG & BIT0){
+                    butcount=butcount+1;
+                    P4 -> IFG &= ~BIT0;
+                }
             }
-            if(P4 -> IFG & BIT0){
-                butcount=butcount+1;
-                spot = 2;
-                P4 -> IFG &= ~BIT0;
+            if(butcount==2)
+            {
+                resetLCD();
+                butcount = 0;
+                P4 -> IFG &= ~BIT0;//clear flag
+                setTimeFlag = 0;
+                RTC_C->TIM0 = mins<<8 | secs;//min, secs
+                RTC_C->TIM1 = (RTC_C->TIM1 & 0xFF00) | hours;  //day, hours
+                interruptFlag1 = 0;
             }
-         }
-         if(butcount==1)
-         {
-             if(P4 -> IFG& BIT2) //Up button
-             {
-                 mins=mins+1;
-                 P4 -> IFG &= ~BIT2;  //clear flag
-             }
-             if(P4 -> IFG & BIT3)//Down button
-             {
-                 mins=mins-1;
-                 P4 -> IFG &= ~BIT3;  //clear flag
-             }
-             if(P4 -> IFG & BIT0){
-                 butcount=butcount+1;
-                 P4 -> IFG &= ~BIT0;
-             }
-         }
-         if(butcount==2)
-         {
-             resetLCD();
-             butcount = 0;
-             P4 -> IFG &= ~BIT0;//clear flag
-             setTimeFlag = 0;
-             RTC_C->TIM0 = mins<<8 | secs;//min, secs
-             RTC_C->TIM1 = (RTC_C->TIM1 & 0xFF00) | hours;  //day, hours
-             interruptFlag1 = 0;
-         }
 
         }else if(interruptFlag2) //Set Alarm
         {
             printSetAlarm(i, spot);
-         if(butcount==0)
-         {
-            if(P4 -> IFG & BIT2) //Up button
+            if(butcount==0)
             {
-                AHOUR=AHOUR+1;
-                P4 -> IFG &= ~BIT2;  //clear flag
+                if(P4 -> IFG & BIT2) //Up button
+                {
+                    AHOUR=AHOUR+1;
+                    P4 -> IFG &= ~BIT2;  //clear flag
+                }
+                if(P4 -> IFG & BIT3)//Down button
+                {
+                    AHOUR=AHOUR-1;
+                    P4 -> IFG &= ~BIT3;  //clear flag
+                }
+                if(P4 -> IFG & BIT1){
+                    butcount=butcount+1;
+                    spot = 2;
+                    P4 -> IFG &= ~BIT1;
+                }
             }
-            if(P4 -> IFG & BIT3)//Down button
+            if(butcount==1)
             {
-                AHOUR=AHOUR-1;
-                P4 -> IFG &= ~BIT3;  //clear flag
+                if(P4 -> IFG & BIT2) //Up button
+                {
+                    AMIN=AMIN+1;
+                    P4 -> IFG &= ~BIT2;  //clear flag
+                }
+                if(P4 -> IFG & BIT3)//Down button
+                {
+                    AMIN=AMIN-1;
+                    P4 -> IFG &= ~BIT3;    //clear flag
+                }
+                if(P4 -> IFG & BIT1){
+                    butcount=butcount+1;
+                    P4 -> IFG &= ~BIT1;
+                }
             }
-            if(P4 -> IFG & BIT1){
-                butcount=butcount+1;
-                spot = 2;
-                P4 -> IFG &= ~BIT1;
-            }
-         }
-          if(butcount==1)
-             {
-                 if(P4 -> IFG & BIT2) //Up button
-                 {
-                     AMIN=AMIN+1;
-                     P4 -> IFG &= ~BIT2;  //clear flag
-                 }
-                 if(P4 -> IFG & BIT3)//Down button
-                 {
-                     AMIN=AMIN-1;
-                     P4 -> IFG &= ~BIT3;    //clear flag
-                 }
-                 if(P4 -> IFG & BIT1){
-                     butcount=butcount+1;
-                     P4 -> IFG &= ~BIT1;
-                 }
-             }
-             if(butcount==2)
-             {
-                 resetLCD();
-                 butcount = 0;
-                 P4 -> IFG &= ~BIT1;//clear flag
-                 if(alarm){
-                     RTC_C->AMINHR = AHOUR<<8 | AMIN | BIT(15) | BIT(7);  //bit 15 and 7 are Alarm Enable bits
-                 }else{
-                     RTC_C->AMINHR = AHOUR<<8 | AMIN;
-                 }
-                 interruptFlag2 = 0;
+            if(butcount==2)
+            {
+                resetLCD();
+                butcount = 0;
+                P4 -> IFG &= ~BIT1;//clear flag
+                if(alarm){
+                    RTC_C->AMINHR = AHOUR<<8 | AMIN | BIT(15) | BIT(7);  //bit 15 and 7 are Alarm Enable bits
+                }else{
+                    RTC_C->AMINHR = AHOUR<<8 | AMIN;
+                }
+                interruptFlag2 = 0;
 
-             }
+            }
         }
         i++;
     }
     if(P4 -> IFG & BIT2){
         P4 -> IFG &= ~BIT2;
+        LED = 0;
+        setBrightness(0);
         TIMER_A2->CCR[2] = 0;
-        if(alarm == 1 || alarm == 3){
+        if(alarm == 3){
+            wakeUp = 0;
+            alarm = 1;
+        }else if(wakeUp){
+            wakeUp = 0;
+        }else if(alarm == 1){
             alarm = 0;
             RTC_C->AMINHR = AHOUR<<8 | AMIN;
         }else if(alarm == 0){
             alarm = 1;
             RTC_C->AMINHR = AHOUR<<8 | AMIN | BIT(15) | BIT(7);  //bit 15 and 7 are Alarm Enable bits
         }
+        if(snoozeCounter){
+            AMIN -= 10 * snoozeCounter;
+            while(AMIN < 0){
+                AHOUR--;
+                AMIN += 60;
+            }
+            snoozeCounter = 0;
+            RTC_C->AMINHR = AHOUR<<8 | AMIN | BIT(15) | BIT(7);  //bit 15 and 7 are Alarm Enable bits
+            TIMER_A2->CCR[2] = 0;
+        }
     }
     if(P4 -> IFG & BIT3){
         P4 -> IFG &= ~BIT3;
+
         if(alarm == 3){
+            snoozeCounter++;
             alarm = 2;
             AMIN +=10;
-            if(AMIN >= 60){
+            LED = 0;
+            setBrightness(0);
+            while(AMIN >= 60){
                 AHOUR+=1;
                 AMIN -= 60;
             }
             RTC_C->AMINHR = AHOUR<<8 | AMIN | BIT(15) | BIT(7);  //bit 15 and 7 are Alarm Enable bits
             TIMER_A2->CCR[2] = 0;
         }
+    }
+    if(P4 -> IFG & BIT4){
+        serialCommand();
+        P4 -> IFG &= ~BIT3;
     }
     // return;
 }
@@ -1048,7 +1069,7 @@ void PORT4_IRQHandler(void)//SET TIME/ALARM interrupt
 -------------------------------------------------------------------------------------------------------------------------------*/
 void RTC_Init(){
     //Initialize time to 2:45:55 pm
-//    RTC_C->TIM0 = 0x2D00;  //45 min, 0 secs
+    //    RTC_C->TIM0 = 0x2D00;  //45 min, 0 secs
     RTC_C->CTL0 = (0xA500);
     RTC_C->CTL13 = 0;
 
@@ -1095,74 +1116,75 @@ void RTC_C_IRQHandler()
                 RTC_C->TIM0 = (((RTC_C->TIM0 & 0xFF00) >> 8)+1)<<8;  // Add a minute if at 59 seconds.  This also resets seconds.
                 //RTC_C->TIM0 = 0;
                 if(mins == 59 ) {
-                       RTC_C->TIM0 = 0<<8;  // Add a minute if at 59 seconds.  This also resets seconds.
-                       RTC_C->TIM1 = (RTC_C->TIM1 & 0x00FF) + 1;
+                    RTC_C->TIM0 = 0<<8;  // Add a minute if at 59 seconds.  This also resets seconds.
+                    RTC_C->TIM1 = (RTC_C->TIM1 & 0x00FF) + 1;
                 }
             }
             if(hours == 25)
             {
-               RTC_C->TIM1 = 1;
-               hours = (RTC_C->TIM1 & 0xFF00) | 1;
+                RTC_C->TIM1 = 1;
+                hours = (RTC_C->TIM1 & 0xFF00) | 1;
             }
 
-                if((hours == AHOUR && mins == AMIN) || alarm == 3)
-                {
-                    //sound alarm function goes here
-                    //printf("SOUND ALARM\n");    //TODO MUST REMOVE LATER, ONLY FOR TESTING
-                    if(alarm != 0){
-                        alarm = 3;
-                    }
-                    //Alarm();
-                    alarm_update = 1;                               // Send flag to main program to notify a time update occurred.
-                    RTC_C->CTL0 = (0xA500) | BIT5;                  // Resetting the alarm flag.  Need to also write the secret code
-                                                                    // and rewrite the entire register.
-                                                                    // TODO: It seems like there is a better way to preserve what was already
-                                                                    // there in case the setup of this register needs to change and this line
-                                                                    // is forgotten to be updated.
-                }else if(LED==0 && alarm){
-                    if(AHOUR == (hours + 1) && AMIN < 5 && mins >= 55){
-                        //edge cases
-                        switch(AMIN)
-                        {
-                        case 0:
-                            if(mins == 55)
-                            {
-                                LED = 3;
-                            }
-                        case 1:
-                            if(mins == 56)
-                            {
-                                LED = 3;
-                            }
-                            break;
-                        case 2:
-                            if(mins == 57)
-                            {
-                                LED = 3;
-                            }
-                            break;
-                        case 3:
-                            if(mins == 58)
-                            {
-                                LED = 3;
-                            }
-                            break;
-                        case 4:
-                            if(mins == 59)
-                            {
-                                LED = 3;
-                            }
-                            break;
-                        default:
-                            break;
-                        }
-
-                    }else if(hours == AHOUR && AMIN == (mins + 5)){
-                        LED = 3;
-                    }
+            if((hours == AHOUR && mins == AMIN) || alarm == 3)
+            {
+                //sound alarm function goes here
+                //printf("SOUND ALARM\n");    //TODO MUST REMOVE LATER, ONLY FOR TESTING
+                if(alarm != 0 && wakeUp){
+                    alarm = 3;
                 }
-            if(LED > 0 && LED <= 100 && alarm){
+                //Alarm();
+                alarm_update = 1;                               // Send flag to main program to notify a time update occurred.
+                RTC_C->CTL0 = (0xA500) | BIT5;                  // Resetting the alarm flag.  Need to also write the secret code
+                // and rewrite the entire register.
+                // TODO: It seems like there is a better way to preserve what was already
+                // there in case the setup of this register needs to change and this line
+                // is forgotten to be updated.
+            }else if(LED==0 && alarm){
+                if(AHOUR == (hours + 1) && AMIN < 5 && mins >= 55){
+                    //edge cases
+                    switch(AMIN)
+                    {
+                    case 0:
+                        if(mins == 55)
+                        {
+                            LED = 3;
+                        }
+                    case 1:
+                        if(mins == 56)
+                        {
+                            LED = 3;
+                        }
+                        break;
+                    case 2:
+                        if(mins == 57)
+                        {
+                            LED = 3;
+                        }
+                        break;
+                    case 3:
+                        if(mins == 58)
+                        {
+                            LED = 3;
+                        }
+                        break;
+                    case 4:
+                        if(mins == 59)
+                        {
+                            LED = 3;
+                        }
+                        break;
+                    default:
+                        break;
+                    }
+
+                }else if(hours == AHOUR && AMIN == (mins + 5)){
+                    LED = 3;
+                }
+            }
+            if(LED > 0 && LED <= 300 && alarm){
                 //printf("LED turned on\n");  //TODO MUST REMOVE LATER, ONLY FOR TESTING
+                wakeUp = 1;
                 if(!(LED%3))
                 {
                     setBrightness(LED/3);     //increase by LED/3
@@ -1175,36 +1197,17 @@ void RTC_C_IRQHandler()
         }
         if(RTC_C->CTL0 & BIT1)                              // Alarm happened!
         {
-           // Alarm();
+            // Alarm();
             alarm_update = 1;                               // Send flag to main program to notify a time update occurred.
             RTC_C->CTL0 = (0xA500) | BIT5;                  // Resetting the alarm flag.  Need to also write the secret code
-                                                            // and rewrite the entire register.
-                                                            // TODO: It seems like there is a better way to preserve what was already
-                                                            // there in case the setup of this register needs to change and this line
-                                                            // is forgotten to be updated.
+            // and rewrite the entire register.
+            // TODO: It seems like there is a better way to preserve what was already
+            // there in case the setup of this register needs to change and this line
+            // is forgotten to be updated.
         }
     }
 }
 
-/*-------------------------------------------------------------------------------------------------------------------------------
- *
- * void PORT1_IRQHandler(void)
- *
- * Interrupt Handler for P1.  The name of this function is set in startup_msp432p401r_ccs.c
- *
- * This handler checks for interrupts on P1.1 and P1.4 and sets a flag to change the output of the main program.
- *
--------------------------------------------------------------------------------------------------------------------------------*/
-void PORT1_IRQHandler(void)
-{
-    if(P1->IFG & BIT1) {                                //If P1.1 had an interrupt
-        display_state = 1;
-    }
-    if(P1->IFG & BIT4) {                                //If P1.4 had an interrupt
-        display_state = 0;
-    }
-    P1->IFG = 0;                                        //Clear all flags
-}
 
 /*-------------------------------------------------------------------------------------------------------------------------------
  *
@@ -1246,29 +1249,29 @@ void checkSetTime(){
         hours = 1;
     }
     if(hours < 1){
-       hours = 24;
+        hours = 24;
     }
     if(mins >=60){
-       mins = 0;
+        mins = 0;
     }
     if(mins < 0){
-       mins = 59;
+        mins = 59;
     }
 }
 
 void checkSetAlarm(){
     if(AHOUR > 24){
-          AHOUR = 1;
-      }
-      if(AHOUR < 1){
-         AHOUR = 24;
-      }
-      if(AMIN >=60){
-         AMIN = 0;
-      }
-      if(AMIN < 0){
-         AMIN = 59;
-      }
+        AHOUR = 1;
+    }
+    if(AHOUR < 1){
+        AHOUR = 24;
+    }
+    if(AMIN >=60){
+        AMIN = 0;
+    }
+    if(AMIN < 0){
+        AMIN = 59;
+    }
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------
