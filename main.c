@@ -88,6 +88,7 @@ int snoozeCounter = 0;
 //alarm
 int AHOUR = 0, AMIN = 0, alarm = 0;
 uint16_t temp=0, LED = 0;
+char serial = 'N';
 
 
 void initializePWM(); //Initializes timer and pins related to pwm
@@ -150,7 +151,12 @@ int main(void)
         }
         if(alarm == 3 && k%3 == 0)
             Alarm();
+        if(serial == 'Y'){
+               serial = 'N';
+               serialCommand();
+           }
     }
+
 }
 
 void serialCommand(){
@@ -1056,8 +1062,8 @@ void PORT4_IRQHandler(void)//SET TIME/ALARM interrupt
         }
     }
     if(P4 -> IFG & BIT4){
-        serialCommand();
-        P4 -> IFG &= ~BIT3;
+        serial = 'Y';
+        P4 -> IFG &= ~BIT4;
     }
     // return;
 }
