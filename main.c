@@ -67,6 +67,7 @@ void setAlarm(int hour, int minute);
 void setTime(int hour, int minute, int second);
 float getTemp();
 
+void backlight();
 void RTC_Init();
 void P1_Init();
 void Buttoninit();
@@ -87,7 +88,7 @@ int snoozeCounter = 0;
 ///////////////////////////////
 //alarm
 int AHOUR = 0, AMIN = 0, alarm = 0;
-uint16_t temp=0, LED = 0;
+uint16_t temp=0, LED = 0, light = 0;
 char serial = 'N';
 
 
@@ -132,6 +133,7 @@ int main(void)
 
     int k = 0;
     while(1){                                       // Main loop of program
+        backlight();
         if(time_update){                            // Time Update Occurred (from interrupt handler)
             time_update = 0;                        // Reset Time Update Notification Flag
             AHOUR= (RTC_C->AMINHR & 0x7F00)>>8; //Sets the ALARM hour
@@ -161,6 +163,13 @@ int main(void)
 
 }
 
+/*----------------------------------------------------------------
+ * void serialCommand()
+ *
+ * Description: Reads from the terminal
+ * Inputs: terminal
+ * Outputs: terminal
+----------------------------------------------------------------*/
 void serialCommand(){
     char string[BUFFER_SIZE]; // Creates local char array to store incoming serial commands
     INPUT_BUFFER[0]= '\0';  // Sets the global buffer to initial condition of empty
@@ -287,10 +296,10 @@ void setBrightness(unsigned int dutyCycle)
 
 void initializePWM()
 {
-    P2->SEL0 |= BIT4|BIT5;
-    P2->SEL1 &= ~BIT4|BIT5;  // Setting SEL0 = 1 and SEL1 = 0 will activate the secondary function of these pins.
-    P2->DIR |=BIT4|BIT5;    // Set pins as outputs.  Also required for PWM output.
-    P2->OUT &= ~(BIT4|BIT5);   // output.
+    P2->SEL0 |= BIT4|BIT5|BIT6;
+    P2->SEL1 &= ~(BIT4|BIT5|BIT6);  // Setting SEL0 = 1 and SEL1 = 0 will activate the secondary function of these pins.
+    P2->DIR |=BIT4|BIT5|BIT6;    // Set pins as outputs.  Also required for PWM output.
+    P2->OUT &= ~(BIT4|BIT5|BIT6);   // output.
 
     //    P7->SEL0 |= (BIT4|BIT5|BIT6|BIT7);
     //    P7->SEL1 &= ~(BIT4|BIT5|BIT6|BIT7);;  // Setting SEL0 = 1 and SEL1 = 0 will activate the secondary function of these pins.
@@ -302,33 +311,21 @@ void initializePWM()
     TIMER_A0->CCR[0] = 50000;  //Running at 60 Hz
     TIMER_A0->CCTL[1] = 0b0000000011100000;  //reset / set
     TIMER_A0->CCTL[2] = 0b0000000011100000;  //reset / set
+    TIMER_A0->CCTL[3] = 0b0000000011100000;  //reset / set
     TIMER_A0->CCR[1] = 0;// Timer LED
     TIMER_A0->CCR[2] = 0;// Timer LED
+    TIMER_A0->CCR[3] = 0;// Timer LED
     TIMER_A0->CTL = 0b0000001000010100;
 }
 
 
-
-///*----------------------------------------------------------------
-// * void initT32()
-// *
-// * Description: Initializes TIMER32_1
-// * Inputs: None
-// * Outputs: None
-//----------------------------------------------------------------*/
-//void initT32()
-//{
-//    TIMER32_1->CONTROL = 0b11000011;                //Sets timer 1 for Enabled, Periodic, No Interrupt, No Prescaler, 32 bit mode, One Shot Mode.  See 589 of the reference manual
-//    TIMER32_1->LOAD = 30000000 - 1;   //10 seconds           //Set to a count down of 1 second on 3 MHz clock
-//}
-//
-///*----------------------------------------------------------------
-// * void TimerA2config(void)
-// *
-// * Description: Initializes TIMER_A2
-// * Inputs: None
-// * Outputs: None
-//----------------------------------------------------------------*/
+/*----------------------------------------------------------------
+ * void TimerA2config(void)
+ *
+ * Description: Initializes TIMER_A2
+ * Inputs: None
+ * Outputs: None
+----------------------------------------------------------------*/
 void TimerA2config(void)
 {
     TIMER_A2->CCR[0]    =    5714;                    // Initialize the period of TimerA0 PWM to the maximum.  This will change at the first interrupt.  Could be set to something else.
@@ -482,20 +479,40 @@ void setupSerial()
     NVIC_EnableIRQ(EUSCIA0_IRQn);
 }
 
-
+/*----------------------------------------------------------------
+ * void readAlarm()
+ *
+ * Description: Reads alarm
+ * Inputs: none
+ * Outputs: terminal
+----------------------------------------------------------------*/
 void readAlarm(){
     char buff[20];
     writeOutput("Alarm is ");
     sprintf(buff, "%02d:%02d%c", AHOUR, AMIN, '\0');
     writeOutput(buff);
 }
-
+/*----------------------------------------------------------------
+ * void readTime()
+ *
+ * Description: Reads time
+ * Inputs: none
+ * Outputs: terminal
+----------------------------------------------------------------*/
 void readTime(){
     char buff[20];
     writeOutput("Time is ");
     sprintf(buff, "%02d:%02d:%02d%c", hours, mins, secs, '\0');
     writeOutput(buff);
 }
+
+/*----------------------------------------------------------------
+ * void setAlarm()
+ *
+ * Description: sets alarm
+ * Inputs: integers for hours and minutes
+ * Outputs: terminal
+----------------------------------------------------------------*/
 void setAlarm(int hour, int minute){
     AHOUR = hour;
     AMIN = minute;
@@ -507,6 +524,14 @@ void setAlarm(int hour, int minute){
     sprintf(buff, "%02d:%02d%c", AHOUR, AMIN, '\0');
     writeOutput(buff);
 }
+
+/*----------------------------------------------------------------
+ * void setTime()
+ *
+ * Description: sets time
+ * Inputs: integers for hours, minutes, and seconds
+ * Outputs: terminal
+----------------------------------------------------------------*/
 void setTime(int hour, int minute, int second){
     setTimeFlag = 1;
     hours = hour;
@@ -522,7 +547,13 @@ void setTime(int hour, int minute, int second){
     setTimeFlag = 0;
 }
 
-//
+/*----------------------------------------------------------------
+ * void printTime()
+ *
+ * Description: prints all the information to the lcd sceen
+ * Inputs: none
+ * Outputs: none
+----------------------------------------------------------------*/
 void printTime(){
     char line1[20];
     char line2[20];
@@ -564,7 +595,6 @@ void printTime(){
         sprintf(line1, "%d:%02d PM %c", 12, AMIN, '\0');
     }
 
-    //sprintf(line4,"%02.1d%c", getTemp(), '\0');
     sprintf(line4,"%.1f%c", getTemp(), '\0');
 
     commandWrite(0X2);
@@ -607,12 +637,19 @@ void printTime(){
 
 }
 
-/*blink should be incremented in the interrupt handler, it will blink every other time the function is called
+/*----------------------------------------------------------------
+ * void printSetTime()
+ *
+ * Description: blink should be incremented in the interrupt handler, it will blink every other time the function is called
  * spot is where the time is beig changed.
  * 1 is for hours
  * 2 is for minutes
  * 3 is for seconds
- */
+ *
+ * Inputs: integers for blink and spot
+ * Outputs: none
+----------------------------------------------------------------*/
+
 void printSetTime(int blink, int spot){
     char line1[20] = "SET TIME";
     char line2[20];
@@ -689,12 +726,18 @@ void printSetTime(int blink, int spot){
     delayMilli(500);
 }
 
-/*blink should be incremented in the interrupt handler, it will blink every other time the function is called
+/*----------------------------------------------------------------
+ * void printSetAlarm()
+ *
+ * Description: blink should be incremented in the interrupt handler, it will blink every other time the function is called
  * spot is where the time is beig changed.
  * 1 is for hours
  * 2 is for minutes
- * Always set 0 to blink for the first time
- */
+ * 3 is for seconds
+ *
+ * Inputs: integers for blink and spot
+ * Outputs: none
+----------------------------------------------------------------*/
 void printSetAlarm(int blink, int spot){
     char line1[20] = "SET ALARM";
     char line2[20];
@@ -760,22 +803,25 @@ void printSetAlarm(int blink, int spot){
     delayMilli(500);
 }
 
-//remember that this was done with a timer. fix later
+/*----------------------------------------------------------------
+ * void getTemp()
+ *
+ * Description: gets the temperature
+ *
+ * Inputs: none
+ * Outputs: none
+----------------------------------------------------------------*/
 float getTemp(){
     float result_temp;
     uint16_t result;
 
-    //    while(1)
-    //    {
+
     ADC14->CTL0 |=0b1;
     result = temp;
     result_temp = ((result*3.3)/16384);
     result_temp = (result_temp * 1000 - 500)/10;
     result_temp = 32 + (result_temp * 9.0/5.0);
-    //ADC14->CTL0 &=~0b1;
     return result_temp;
-
-    //    }
 
 }
 
@@ -822,7 +868,14 @@ void ADC14init(void)
     ADC14->CTL0         |=   0b10;                      // Enable Conversion
     NVIC->ISER[0]       |=   1<<ADC14_IRQn;             // Turn on ADC Interrupts in NVIC.  Equivalent to "NVIC_EnableIRQ(ADC14_IRQn);"
 }
-//Interrupts
+/*----------------------------------------------------------------
+ * void ADC14_IRQHandler(void)
+ *
+ * Description: adc interrupt
+ *
+ * Inputs: none
+ * Outputs: none
+----------------------------------------------------------------*/
 void ADC14_IRQHandler(void)
 {
     if(ADC14->IFGR0 & BIT0)
@@ -830,10 +883,24 @@ void ADC14_IRQHandler(void)
         temp = ADC14->MEM[0];
         ADC14->CLRIFGR0     &=  ~BIT0;                  // Clear MEM0 interrupt flag
     }
+    if(ADC14->IFGR0 & BIT1)
+        {
+            light = ADC14->MEM[1];
+            ADC14->CLRIFGR0     &=  ~BIT0;                  // Clear MEM0 interrupt flag
+        }
+
 
     ADC14->CLRIFGR1     &=    ~0b1111110;                 // Clear all IFGR1 Interrupts (Bits 6-1.  These could trigger an interrupt and we are checking them for now.)
 }
 
+/*----------------------------------------------------------------
+ * void Buttoninit(void)
+ *
+ * Description: initializes buttons
+ *
+ * Inputs: none
+ * Outputs: none
+----------------------------------------------------------------*/
 void Buttoninit()
 {
     //Button for setting time Black button
@@ -897,6 +964,14 @@ void Buttoninit()
     NVIC_EnableIRQ(PORT1_IRQn);
 }
 
+/*----------------------------------------------------------------
+ * void ADC14_IRQHandler(void)
+ *
+ * Description: does everything that's related to the timer, including the alarms and such
+ *
+ * Inputs: none
+ * Outputs: none
+----------------------------------------------------------------*/
 void PORT4_IRQHandler(void)//SET TIME/ALARM interrupt
 {
     int butcount = 0, i = 0, spot = 1;
@@ -1258,6 +1333,14 @@ void Alarm()
     }
 }
 
+/*----------------------------------------------------------------
+ * void checkSetTime(void)
+ *
+ * Description: ensures that the time values are within their parameters
+ *
+ * Inputs: none
+ * Outputs: none
+----------------------------------------------------------------*/
 void checkSetTime(){
     if(hours > 24){
         hours = 1;
@@ -1273,6 +1356,14 @@ void checkSetTime(){
     }
 }
 
+/*----------------------------------------------------------------
+ * void checkSetAlarm(void)
+ *
+ * Description: ensures that the alarm values are within their parameters
+ *
+ * Inputs: none
+ * Outputs: none
+----------------------------------------------------------------*/
 void checkSetAlarm(){
     if(AHOUR > 24){
         AHOUR = 1;
@@ -1306,4 +1397,24 @@ void PORT1_IRQHandler(void)
         RTC_C->PS1CTL = 0b11010; //1 second interrupt
     }
     P1->IFG = 0;                                        //Clear all flags
+}
+
+/*----------------------------------------------------------------
+ * void backlight(void)
+ *
+ * Description: sets brightness for lcd
+ *
+ * Inputs: none
+ * Outputs: none
+----------------------------------------------------------------*/
+void backlight(){
+    float result;
+    ADC14->CTL0 |=0b1;
+    result = light;
+    //result = ((result*3.3)/16384);
+    result = ((result*3.3)/4096);
+    result = result/3.3;
+    TIMER_A0->CCR[3] = 50000*result;
+    printf("%f\n",result);
+
 }
