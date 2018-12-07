@@ -65,7 +65,7 @@ void readAlarm();
 void readTime();
 void setAlarm(int hour, int minute);
 void setTime(int hour, int minute, int second);
-int getTemp();
+float getTemp();
 
 void RTC_Init();
 void P1_Init();
@@ -562,8 +562,8 @@ void printTime(){
         sprintf(line1, "%d:%02d PM %c", 12, AMIN, '\0');
     }
 
-    ////sprintf(line4,"%02.1d%c", getTemp(), '\0');
-    //sprintf(line4,"%.1d%c", getTemp(), '\0');
+    //sprintf(line4,"%02.1d%c", getTemp(), '\0');
+    sprintf(line4,"%.1f%c", getTemp(), '\0');
 
     commandWrite(0X2);
     n = strlen(line1);
@@ -590,16 +590,16 @@ void printTime(){
         dataWrite(line3[i]);
     }
 
-    //  commandWrite(0xC0+0x10);
-    //  delayMicro(100);
-    //  commandWrite(0x0F);
-    //  n = strlen(line4);
-    //  for(i=0;i<n;i++)
-    //  {
-    //      dataWrite(line4[i]);
-    //  }
-    //  dataWrite(0b11011111);
-    //  dataWrite('F');
+      commandWrite(0xC0+0x10);
+      delayMicro(100);
+      commandWrite(0x0F);
+      n = strlen(line4);
+      for(i=0;i<n;i++)
+      {
+          dataWrite(line4[i]);
+      }
+      dataWrite(0b11011111);
+      dataWrite('F');
 
 
 }
@@ -758,7 +758,7 @@ void printSetAlarm(int blink, int spot){
 }
 
 //remember that this was done with a timer. fix later
-int getTemp(){
+float getTemp(){
     float result_temp;
     uint16_t result;
 
@@ -769,6 +769,7 @@ int getTemp(){
     result_temp = ((result*3.3)/16384);
     result_temp = (result_temp * 1000 - 500)/10;
     result_temp = 32 + (result_temp * 9.0/5.0);
+    //ADC14->CTL0 &=~0b1;
     return result_temp;
 
     //    }
@@ -790,8 +791,8 @@ int getTemp(){
 void ADC14init(void)
 {
     //For Analog Input 8
-    //    P4->SEL0            |=   BIT5;                      // Select ADC Operation
-    //    P4->SEL1            |=   BIT5;                      // SEL = 11 sets to ADC operation
+    P4->SEL0            |=   BIT5;                      // Select ADC Operation
+    P4->SEL1            |=   BIT5;                      // SEL = 11 sets to ADC operation
     P5->SEL0            |=   BIT5;                      // Select ADC Operation
     P5->SEL1            |=   BIT5;                      // SEL = 11 sets to ADC operation
 
@@ -809,8 +810,8 @@ void ADC14init(void)
 
     ADC14->CTL1         =    BIT5;         // Bits 5 = 11 to enable 14 bit conversion
     // Bit 23 turns on Temperature Sensor
-    ADC14->MCTL[0]      =    0|BIT7;                         // A0 on P4.5, BIT7 says stop converting after this ADC
-    //ADC14->MCTL[1]      =    8;                         // A8 on P4.5
+    ADC14->MCTL[0]      =    0;                         // A0 on P4.5, BIT7 says stop converting after this ADC
+    ADC14->MCTL[1]      =    8|BIT7;                         // A8 on P4.5
     //ADC14->MCTL[2]      =    22 | BIT7;                 // Internal Temperature Sensor on A22 WHICH IS P6.3
     // BIT7 says to stop converting after this ADC.
     ADC14->IER0         |=   BIT0;            // Interrupt on for all three conversions
