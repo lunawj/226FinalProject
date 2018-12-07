@@ -113,6 +113,7 @@ int main(void)
     RTC_Init();  // Initialize the RTC
     P1_Init();   // Initialize the P1 Buttons as interrupts
     initPins();
+    ADC14init();
     SpeakerConfig();
     TimerA2config();
     delayMicro(100);
@@ -151,6 +152,7 @@ int main(void)
         }
         if(alarm == 3 && k%3 == 0)
             Alarm();
+        delayMicro(100);
         if(serial == 'Y'){
                serial = 'N';
                serialCommand();
@@ -600,6 +602,7 @@ void printTime(){
       }
       dataWrite(0b11011111);
       dataWrite('F');
+      dataWrite(' ');
 
 
 }
